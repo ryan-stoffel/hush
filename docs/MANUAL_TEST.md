@@ -33,7 +33,8 @@ The sections below describe the expected behavior of the finished features. A se
 | 10. End to end | v0.1 | no |
 | 11. Privacy checks | v0.1 | partly (UserDefaults and network checks work on the shell app) |
 | 12. Idle resource use | v0.1 | partly (the skeleton check at the end of the section) |
-| 13. Later milestones | v0.2, v0.3, v1.0 | no |
+| 13. Spoken formatting | v0.2 | yes, once #27 is merged |
+| 14. Later milestones | v0.2, v0.3, v1.0 | no |
 
 ## When to run it
 
@@ -383,17 +384,33 @@ Demo mode isolation (this protects CI, and works on the skeleton today):
 - [ ] The Mac still goes to sleep on schedule with Quoth running.
 - [ ] Skeleton check that applies today: the shell app idles at 0.0 percent CPU and a few tens of MB of memory.
 
-## 13. Later milestones
+## 13. Spoken formatting (v0.2)
+
+`SpokenFormatting` in `QuothCore` is unit tested, including transcripts captured from the real model. These checks cover live speech into TextEdit. Pause briefly around each command; the model then writes it as its own clause.
+
+- [ ] Say "Hi Sam comma new line thanks for the update period". Expected: "Hi Sam," then a line break, then "Thanks for the update."
+- [ ] Say "intro new paragraph body". Expected: a blank line between the two words, and "Body" capitalized.
+- [ ] Say "can we meet Tuesday question mark" and "watch out exclamation point". Expected: "?" and "!" with no spoken words left over and no doubled punctuation.
+- [ ] Say "three things colon speed semicolon accuracy dash and privacy". Expected: ":", ";" and " - ".
+- [ ] Say "the result open paren so far close paren is good" and "she said open quote hello close quote". Expected: "(so far)" and "\"hello\"".
+- [ ] Say "shopping list colon new line one, apples, two, bananas, three, cherries". Expected: a numbered list, one item per line, items capitalized.
+- [ ] Say "first, open the app. Second, hold the key. Third, start talking". Expected: a numbered list.
+- [ ] Say "things to do bullet point call the bank next bullet email Priya". Expected: one "- " line per item.
+- [ ] Say "the period of time was long", "that is a comma splice", "add a new line of code". Expected: the words stay words.
+- [ ] Say "I have one apple and two pears". Expected: no list.
+- [ ] Dictate a "new line" into Terminal or iTerm2 with a harmless command typed first (for example `echo`). Note whether the shell runs the line. A pasted line break can execute a command in a terminal without bracketed paste; record the result here.
+- [ ] Dictate a sentence in another language with auto-detect on. Expected: English command words are not converted.
+
+## 14. Later milestones
 
 The features below do not exist yet. Each heading names the milestone and gives the first concrete checks. The issue that builds the feature extends its section with full coverage in the same PR, and moves the section above this heading.
 
 ### Cleanup pipeline (v0.2)
 
-Rules are unit tested in `QuothCore` (`FillerWordRemover`, `SelfCorrectionParser`, `SpokenPunctuation`, `PunctuationAndCapitalization`). The manual checks cover real speech, which unit tests cannot.
+Rules are unit tested in `QuothCore` (`FillerWordRemover`, `SelfCorrectionParser`, `PunctuationAndCapitalization`). The manual checks cover real speech, which unit tests cannot.
 
 - [ ] Say "um, so I think, uh, we should ship it". Expected: fillers removed, the rest intact: "So I think we should ship it."
 - [ ] Say "let's meet Tuesday, no wait, Wednesday". Expected: only the corrected version is inserted.
-- [ ] Say "hello comma world period new line next". Expected: punctuation and a line break, not the spoken words.
 - [ ] With cleanup turned off in settings, the raw transcript is inserted unchanged.
 - [ ] Optional LLM cleanup with a local model: run the network check from section 11 and confirm zero connections.
 
