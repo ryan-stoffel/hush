@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- Transcription backend protocol and the default on-device WhisperKit backend (model download with progress, language auto-detect, Whisper marker cleanup). Adds the WhisperKit dependency. (#7)
 - Floating, non-activating dictation pill with a live waveform, elapsed time, transcribing and error states. Adds the `overlay-listening` and `overlay-transcribing` demo scenes. (#6)
 - Microphone capture with AVAudioEngine, resampled to 16 kHz mono Float32 in memory, with input level metering and a 10 minute cap. (#5)
 - Global push-to-talk detection: a listen-only event tap and a state machine that reports a bare Fn hold and cancels on taps, Fn shortcuts, and extra modifiers. (#4)
