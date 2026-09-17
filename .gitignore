@@ -1,0 +1,51 @@
+# macOS
+.DS_Store
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+derived-*/
+*.xcresult
+*.dSYM
+*.dSYM.zip
+*.ipa
+*.xcarchive
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+*.o
+
+# Build output and CI scratch
+build/
+shots/
+screenshots/
+publish/
+pages/
+updates/
+
+# Secrets and signing material
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.pem
+*.key
+.env
+.env.*
+sparkle_private_key*
+
+# Models are downloaded at runtime and never committed
+*.mlmodelc
+*.mlpackage
+
+# Editors
+.idea/
+.vscode/
+*.swp

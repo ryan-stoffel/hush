@@ -1,0 +1,68 @@
+name: Quoth
+options:
+  bundleIdPrefix: io.github.ryan-stoffel
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+settings:
+  base:
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    DEAD_CODE_STRIPPING: YES
+packages:
+  Quoth:
+    path: .
+targets:
+  Quoth:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+        excludes:
+          - Info.plist
+          - "*.entitlements"
+    dependencies:
+      - package: Quoth
+        product: QuothKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.ryan-stoffel.quoth
+        PRODUCT_NAME: Quoth
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: App/Quoth.entitlements
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_HARDENED_RUNTIME: YES
+        COMBINE_HIDPI_IMAGES: YES
+  QuothUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: Quoth
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.ryan-stoffel.quoth.UITests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        TEST_TARGET_NAME: Quoth
+schemes:
+  Quoth:
+    build:
+      targets:
+        Quoth: all
+        QuothUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - QuothUITests
+    archive:
+      config: Release
