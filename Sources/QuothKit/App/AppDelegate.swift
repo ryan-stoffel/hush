@@ -7,6 +7,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor private var statusItemController: StatusItemController?
     @MainActor private var popoverController: PopoverController?
     @MainActor private var overlayController: OverlayPanelController?
+    @MainActor private var coordinator: DictationCoordinator?
 
     public init(demoMode: DemoMode = DemoMode(arguments: ProcessInfo.processInfo.arguments)) {
         self.demoMode = demoMode
@@ -27,10 +28,29 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             statusItem: statusItemController.statusItem,
             model: PopoverViewModel(appState: appState, permissions: permissions)
         )
-        overlayController = OverlayPanelController()
+        let overlayController = OverlayPanelController()
+        self.overlayController = overlayController
         if let scene {
             open(scene, appState: appState)
         }
+        // Demo mode stays away from the microphone, event taps, Accessibility and the network.
+        guard !demoMode.isEnabled else { return }
+        let coordinator = DictationCoordinator(
+            appState: appState,
+            hotkey: EventTapHotkeyMonitor(),
+            capture: AudioCaptureService(),
+            backend: WhisperKitBackend(),
+            inserter: PasteInserter(),
+            permissions: permissions,
+            overlay: overlayController
+        )
+        self.coordinator = coordinator
+        coordinator.start()
+    }
+
+    @MainActor
+    public func applicationWillTerminate(_: Notification) {
+        coordinator?.stop()
     }
 
     @MainActor

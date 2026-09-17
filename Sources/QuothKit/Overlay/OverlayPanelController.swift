@@ -74,7 +74,7 @@ public final class OverlayPanelController {
         present()
     }
 
-    public func showError(_ message: String, duration: TimeInterval = 3) {
+    public func showError(_ message: String, duration: TimeInterval) {
         stopTimer()
         model.mode = .error(message)
         present()
