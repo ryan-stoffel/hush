@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- Spoken formatting: say punctuation ("comma", "question mark"), "new line", "new paragraph", "bullet point", or count off "one, two, three" and the text is formatted accordingly. Works even when Cleanup is turned off. (#27)
 - Cleanup pipeline between transcription and insertion, with ordered stages, a global toggle and per-stage toggles, a timeout for model-backed cleanup, and a fallback to the raw transcript. (#24)
 - Typed settings store (`SettingsStore`, `SettingKey`) over UserDefaults with an in-memory variant for demo mode and tests, per-key observation, and reset. (#11)
 - The dictation loop: hold Fn, speak, release, and the on-device transcript is pasted at the cursor. Errors show in the status item, popover, and overlay. (#9)
