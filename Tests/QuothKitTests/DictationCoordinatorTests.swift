@@ -25,6 +25,15 @@ private final class FakeOverlay: OverlayPresenting {
     func append(level _: Float) {}
 }
 
+private final class FakeCleanup: TextCleaning {
+    var contexts: [CleanupContext] = []
+
+    func run(_ rawText: String, context: CleanupContext) async -> CleanupResult {
+        contexts.append(context)
+        return CleanupResult(rawText: rawText, finalText: "cleaned: \(rawText)")
+    }
+}
+
 @MainActor
 final class DictationCoordinatorTests: XCTestCase {
     private var appState = AppState()
@@ -192,6 +201,29 @@ final class DictationCoordinatorTests: XCTestCase {
         let coordinator = makeCoordinator()
         coordinator.handle(.pressed)
         XCTAssertEqual(appState.dictation, .listening)
+    }
+
+    func testCleanupRunsBetweenTranscriptionAndInsertion() async {
+        let cleanup = FakeCleanup()
+        let coordinator = DictationCoordinator(
+            appState: appState,
+            hotkey: hotkey,
+            capture: capture,
+            backend: backend,
+            inserter: inserter,
+            permissions: permissions,
+            overlay: overlay,
+            cleanup: cleanup,
+            frontmostBundleIdentifier: { "com.apple.TextEdit" }
+        )
+        coordinator.start()
+        coordinator.handle(.pressed)
+        coordinator.handle(.released)
+        await coordinator.pipelineTask?.value
+        XCTAssertEqual(inserter.insertedTexts, ["cleaned: Send it Wednesday."])
+        XCTAssertEqual(appState.lastDictation, "cleaned: Send it Wednesday.")
+        XCTAssertEqual(cleanup.contexts, [CleanupContext(language: "en", bundleIdentifier: "com.apple.TextEdit")])
+        XCTAssertEqual(overlay.events, ["listening", "transcribing", "hide"])
     }
 
     func testReleasedWithoutListeningDoesNothing() {

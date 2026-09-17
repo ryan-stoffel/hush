@@ -4,10 +4,13 @@ import Foundation
 public enum SettingKeys {
     // Cleanup
     public static let cleanupEnabled = SettingKey("cleanup.enabled", default: true)
-    public static let spokenFormattingEnabled = SettingKey("cleanup.spokenFormatting.enabled", default: true)
 
-    public static let allNames: [String] = [
-        cleanupEnabled.name,
-        spokenFormattingEnabled.name,
-    ]
+    /// Stage ids in pipeline order. Each one gets its own enabled toggle.
+    public static let cleanupStageIDs = ["spokenFormatting"]
+
+    public static func stageEnabled(_ stageID: String) -> SettingKey<Bool> {
+        SettingKey("cleanup.stage.\(stageID).enabled", default: true)
+    }
+
+    public static let allNames: [String] = [cleanupEnabled.name] + cleanupStageIDs.map { stageEnabled($0).name }
 }

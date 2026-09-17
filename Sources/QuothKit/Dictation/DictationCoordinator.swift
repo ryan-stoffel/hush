@@ -26,6 +26,8 @@ public final class DictationCoordinator {
     private let inserter: any TextInserting
     private let permissions: any PermissionsProviding
     private let overlay: OverlayPresenting
+    private let cleanup: (any TextCleaning)?
+    private let frontmostBundleIdentifier: () -> String?
     private let errorDuration: TimeInterval
 
     public private(set) var pipelineTask: Task<Void, Never>?
@@ -42,6 +44,8 @@ public final class DictationCoordinator {
         inserter: any TextInserting,
         permissions: any PermissionsProviding,
         overlay: OverlayPresenting,
+        cleanup: (any TextCleaning)? = nil,
+        frontmostBundleIdentifier: @escaping () -> String? = { nil },
         errorDuration: TimeInterval = 3,
         hotkeyRetryInterval: TimeInterval = 3
     ) {
@@ -52,6 +56,8 @@ public final class DictationCoordinator {
         self.inserter = inserter
         self.permissions = permissions
         self.overlay = overlay
+        self.cleanup = cleanup
+        self.frontmostBundleIdentifier = frontmostBundleIdentifier
         self.errorDuration = errorDuration
         self.hotkeyRetryInterval = hotkeyRetryInterval
     }
@@ -153,14 +159,25 @@ public final class DictationCoordinator {
                 finishQuietly()
                 return
             }
-            _ = try await inserter.insert(transcript.text)
-            appState.lastDictation = transcript.text
+            // The overlay keeps showing Transcribing while cleanup runs.
+            let text = await cleanedText(for: transcript)
+            _ = try await inserter.insert(text)
+            appState.lastDictation = text
             finishQuietly()
         } catch TranscriptionError.tooShort {
             finishQuietly()
         } catch {
             fail(DictationFailure.message(for: error))
         }
+    }
+
+    private func cleanedText(for transcript: Transcript) async -> String {
+        guard let cleanup else { return transcript.text }
+        let context = CleanupContext(
+            language: transcript.language,
+            bundleIdentifier: frontmostBundleIdentifier()
+        )
+        return await cleanup.run(transcript.text, context: context).finalText
     }
 
     private func finishQuietly() {
