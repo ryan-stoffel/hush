@@ -11,13 +11,35 @@ let package = Package(
         .library(name: "QuothCore", targets: ["QuothCore"]),
         .library(name: "QuothKit", targets: ["QuothKit"]),
     ],
-    dependencies: [],
+    dependencies: [
+        // WhisperKit (pre-approved): on-device Whisper inference on Core ML and the Neural Engine,
+        // including model download and tokenization. It is what makes local-by-default possible.
+        // The SDK has no equivalent: SFSpeechRecognizer cannot guarantee on-device processing for
+        // every language and offers no model choice. The repository was renamed from
+        // argmaxinc/WhisperKit to argmax-oss-swift in 2026. 1.1.0 is the first release without the
+        // empty-result bug when prompt tokens are set, which the dictionary feature relies on.
+        .package(url: "https://github.com/argmaxinc/argmax-oss-swift.git", from: "1.1.0"),
+    ],
     targets: [
         // Pure logic. Foundation only, so it stays fast to build and trivial to unit test.
         .target(name: "QuothCore"),
-        // Platform layer: AppKit, SwiftUI, AVFoundation, Accessibility.
-        .target(name: "QuothKit", dependencies: ["QuothCore"]),
+        // Platform layer: AppKit, SwiftUI, AVFoundation, Accessibility, WhisperKit.
+        .target(
+            name: "QuothKit",
+            dependencies: [
+                "QuothCore",
+                .product(
+                    name: "WhisperKit",
+                    package: "argmax-oss-swift",
+                    condition: .when(platforms: [.macOS])
+                ),
+            ]
+        ),
         .testTarget(name: "QuothCoreTests", dependencies: ["QuothCore"]),
-        .testTarget(name: "QuothKitTests", dependencies: ["QuothKit"]),
+        .testTarget(
+            name: "QuothKitTests",
+            dependencies: ["QuothKit"],
+            resources: [.copy("Resources/sample-speech.wav")]
+        ),
     ]
 )

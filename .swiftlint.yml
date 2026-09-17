@@ -28,7 +28,6 @@ opt_in_rules:
   - force_unwrapping
   - implicit_return
   - last_where
-  - modifier_order
   - overridden_super_call
   - private_outlet
   - redundant_nil_coalescing
