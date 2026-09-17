@@ -14,4 +14,9 @@ final class ScreenshotTests: ScreenshotTestCase {
             app.terminate()
         }
     }
+
+    func testPopover() {
+        launch(scene: "popover")
+        capture(app.popovers.firstMatch, named: "popover")
+    }
 }

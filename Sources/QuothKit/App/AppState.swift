@@ -5,9 +5,11 @@ import QuothCore
 @MainActor
 public final class AppState: ObservableObject {
     @Published public private(set) var dictation: DictationState
+    @Published public var lastDictation: String?
 
-    public init(dictation: DictationState = .idle) {
+    public init(dictation: DictationState = .idle, lastDictation: String? = nil) {
         self.dictation = dictation
+        self.lastDictation = lastDictation
     }
 
     /// Returns false and leaves the state untouched when the transition is not allowed.
