@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- Menu bar status item whose icon and accessibility label follow the dictation state (idle, listening, transcribing, error), backed by `DictationState` in `QuothCore` and an observable `AppState` in `QuothKit`. Demo mode accepts `-demoState` to start in a given state. (#1)
 - SwiftPM package (`Package.swift`, Swift tools version 5.10, macOS 14 minimum) with two library targets and no third-party dependencies: `QuothCore` for pure Foundation-only logic and `QuothKit` for the platform layer. Unit test targets `QuothCoreTests` and `QuothKitTests`.
 - XcodeGen project spec (`project.yml`) that generates `Quoth.xcodeproj` with the `Quoth` app target (bundle id `io.github.ryan-stoffel.quoth`, hardened runtime, ad hoc signing for local builds), the `QuothUITests` UI test target, and a shared `Quoth` scheme. The generated project is not committed.
 - Menu bar agent app shell: `App/main.swift` starts `NSApplication` with the accessory activation policy, `Info.plist` sets `LSUIElement`, and `AppDelegate` in `QuothKit` keeps the app running with no windows open. The app has no status item, windows, or dictation features yet.

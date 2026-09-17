@@ -10,7 +10,7 @@ Quoth is an open-source macOS menu bar app for voice dictation. Hold a key, spea
 
 As of 2026-09-17 the repository contains the project skeleton only:
 
-- an agent app shell that launches with no Dock icon, no menu bar item, and no windows yet (the status item lands in v0.1)
+- an agent app shell that launches with no Dock icon and shows a menu bar status item whose icon follows the dictation state (nothing drives the state yet)
 - demo mode launch argument parsing (`-demoMode YES -demoScene <name>`)
 - the XCUITest screenshot harness
 - CI: lint, unit tests, UI tests, branch name, linked issue, PR format, and before and after screenshot workflows
@@ -151,7 +151,7 @@ Build and run from Xcode:
 open Quoth.xcodeproj
 ```
 
-Select the `Quoth` scheme and run. Today the app launches with no visible UI. Confirm it is running in Activity Monitor or the Xcode debug bar, and stop it from Xcode.
+Select the `Quoth` scheme and run. Today the app shows only its menu bar icon. Stop it from Xcode.
 
 Or build headless:
 

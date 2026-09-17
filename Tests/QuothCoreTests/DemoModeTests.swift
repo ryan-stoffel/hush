@@ -31,4 +31,19 @@ final class DemoModeTests: XCTestCase {
         XCTAssertFalse(DemoMode(arguments: ["-demoMode"]).isEnabled)
         XCTAssertNil(DemoMode(arguments: ["-demoMode", "YES", "-demoScene", "-other"]).sceneName)
     }
+
+    func testDemoStateIsParsed() {
+        XCTAssertEqual(DemoMode(arguments: ["-demoMode", "YES", "-demoState", "listening"]).state, .listening)
+        XCTAssertEqual(DemoMode(arguments: ["-demoMode", "YES", "-demoState", "transcribing"]).state, .transcribing)
+        XCTAssertEqual(
+            DemoMode(arguments: ["-demoMode", "YES", "-demoState", "error"]).state,
+            .error(DemoMode.demoErrorMessage)
+        )
+    }
+
+    func testUnknownOrMissingDemoStateIsIdle() {
+        XCTAssertEqual(DemoMode(arguments: ["-demoMode", "YES", "-demoState", "bogus"]).state, .idle)
+        XCTAssertEqual(DemoMode(arguments: ["-demoMode", "YES"]).state, .idle)
+        XCTAssertEqual(DemoMode(arguments: ["-demoState", "listening"]).state, .idle)
+    }
 }
