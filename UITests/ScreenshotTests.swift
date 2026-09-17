@@ -24,4 +24,14 @@ final class ScreenshotTests: ScreenshotTestCase {
         launch(scene: "popover-permissions")
         capture(app.popovers.firstMatch, named: "popover-permissions")
     }
+
+    func testOverlayListening() {
+        launch(scene: "overlay-listening")
+        capture(app.dialogs["overlay.panel"], named: "overlay-listening")
+    }
+
+    func testOverlayTranscribing() {
+        launch(scene: "overlay-transcribing")
+        capture(app.dialogs["overlay.panel"], named: "overlay-transcribing")
+    }
 }

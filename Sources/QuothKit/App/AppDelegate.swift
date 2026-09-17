@@ -6,6 +6,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor public private(set) var appState: AppState?
     @MainActor private var statusItemController: StatusItemController?
     @MainActor private var popoverController: PopoverController?
+    @MainActor private var overlayController: OverlayPanelController?
 
     public init(demoMode: DemoMode = DemoMode(arguments: ProcessInfo.processInfo.arguments)) {
         self.demoMode = demoMode
@@ -26,6 +27,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             statusItem: statusItemController.statusItem,
             model: PopoverViewModel(appState: appState, permissions: permissions)
         )
+        overlayController = OverlayPanelController()
         if let scene {
             open(scene, appState: appState)
         }
@@ -37,6 +39,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         case .popover, .popoverPermissions:
             appState.lastDictation = DemoData.lastDictation
             popoverController?.showForDemo()
+        case .overlayListening:
+            overlayController?.model.setWaveform(DemoData.waveform)
+            overlayController?.model.elapsed = DemoData.elapsed
+            overlayController?.showStatic(mode: .listening)
+        case .overlayTranscribing:
+            overlayController?.showStatic(mode: .transcribing)
         }
     }
 
