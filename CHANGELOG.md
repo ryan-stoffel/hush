@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- The dictation loop: hold Fn, speak, release, and the on-device transcript is pasted at the cursor. Errors show in the status item, popover, and overlay. (#9)
 - Text insertion by clipboard paste: snapshot, transient-marked write, layout-aware Cmd+V, and restore guarded by the pasteboard change count. (#8)
 - Transcription backend protocol and the default on-device WhisperKit backend (model download with progress, language auto-detect, Whisper marker cleanup). Adds the WhisperKit dependency. (#7)
 - Floating, non-activating dictation pill with a live waveform, elapsed time, transcribing and error states. Adds the `overlay-listening` and `overlay-transcribing` demo scenes. (#6)
