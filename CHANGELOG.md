@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- Status item popover showing the current state, the last dictation with a Copy button, the app version, and Quit. Adds the `popover` demo scene and its screenshot test. (#2)
 - Menu bar status item whose icon and accessibility label follow the dictation state (idle, listening, transcribing, error), backed by `DictationState` in `QuothCore` and an observable `AppState` in `QuothKit`. Demo mode accepts `-demoState` to start in a given state. (#1)
 - SwiftPM package (`Package.swift`, Swift tools version 5.10, macOS 14 minimum) with two library targets and no third-party dependencies: `QuothCore` for pure Foundation-only logic and `QuothKit` for the platform layer. Unit test targets `QuothCoreTests` and `QuothKitTests`.
 - XcodeGen project spec (`project.yml`) that generates `Quoth.xcodeproj` with the `Quoth` app target (bundle id `io.github.ryan-stoffel.quoth`, hardened runtime, ad hoc signing for local builds), the `QuothUITests` UI test target, and a shared `Quoth` scheme. The generated project is not committed.
