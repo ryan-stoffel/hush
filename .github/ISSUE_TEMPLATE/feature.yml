@@ -1,0 +1,76 @@
+name: Feature request
+description: Propose a unit of work that fits in one pull request.
+title: "feature(<area>): "
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One issue is one pull request. If the idea is larger, describe it in Discussions first and split it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard or impossible today, and for whom.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What the app should do. Describe behavior, not implementation.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - audio
+        - hotkey
+        - transcription
+        - cleanup
+        - insertion
+        - ui
+        - settings
+        - ci
+        - release
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance checklist
+      description: Observable, testable statements. The pull request is done when every box can be ticked.
+      value: |
+        - [ ]
+        - [ ]
+        - [ ] Unit tests cover the new logic
+        - [ ] A demo scene and a screenshot test exist for any new window or tab
+        - [ ] CHANGELOG.md updated under Unreleased
+    validations:
+      required: true
+  - type: dropdown
+    id: privacy
+    attributes:
+      label: Does this send anything off the machine
+      description: Nothing may leave the machine unless the user picked a cloud backend.
+      options:
+        - "No"
+        - Only when a cloud backend is selected
+        - "Yes (explain in the proposal)"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and out of scope
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and the milestones.
+          required: true
+        - label: This needs no new third-party dependency, or I explained why it does.
+          required: true

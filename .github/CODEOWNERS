@@ -1,0 +1,17 @@
+# Every change needs a review from a code owner. The last matching pattern wins.
+*                         @ryan-stoffel
+
+# CI, release tooling, and repository policy
+/.github/                 @ryan-stoffel
+/scripts/                 @ryan-stoffel
+/docs/RELEASING.md        @ryan-stoffel
+
+# Dependencies, project definition, signing, entitlements
+/Package.swift            @ryan-stoffel
+/Package.resolved         @ryan-stoffel
+/project.yml              @ryan-stoffel
+/App/                     @ryan-stoffel
+
+# Agent instructions are kept in sync by hand
+/AGENTS.md                @ryan-stoffel
+/CLAUDE.md                @ryan-stoffel

@@ -1,0 +1,99 @@
+name: Bug report
+description: Something does not work the way the docs or the app say it should.
+title: "bug(<area>): "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Search existing issues first.
+        Never paste API keys, and remove anything private from transcripts and logs before posting.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - audio
+        - hotkey
+        - transcription
+        - cleanup
+        - insertion
+        - ui
+        - settings
+        - ci
+        - release
+        - not sure
+    validations:
+      required: true
+  - type: input
+    id: target-app
+    attributes:
+      label: App you were dictating into
+      description: Name and version. Insertion bugs usually depend on the destination app.
+      placeholder: "Slack 4.41, iTerm2 3.5, Safari 19"
+  - type: input
+    id: app-version
+    attributes:
+      label: "Quoth version"
+      description: Shown in the menu bar popover and in Settings.
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac model
+      placeholder: "macOS 15.6, MacBook Air M2"
+    validations:
+      required: true
+  - type: dropdown
+    id: backends
+    attributes:
+      label: Transcription backend
+      options:
+        - Local (WhisperKit)
+        - Cloud (OpenAI)
+        - Cloud (Deepgram)
+        - not sure
+    validations:
+      required: true
+  - type: checkboxes
+    id: permissions
+    attributes:
+      label: Permissions
+      description: Tick the ones that are granted in System Settings, Privacy and Security.
+      options:
+        - label: Microphone
+        - label: Accessibility
+        - label: Input Monitoring
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "Console.app output filtered by the Quoth process, or `log show --last 10m --predicate 'subsystem == \"io.github.ryan-stoffel.quoth\"'`."
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I removed API keys and private text from everything above.
+          required: true
