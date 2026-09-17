@@ -4,6 +4,7 @@ import QuothCore
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     public let demoMode: DemoMode
     @MainActor public private(set) var appState: AppState?
+    @MainActor public private(set) var settings: SettingsStore?
     @MainActor private var statusItemController: StatusItemController?
     @MainActor private var popoverController: PopoverController?
     @MainActor private var overlayController: OverlayPanelController?
@@ -16,6 +17,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     public func applicationDidFinishLaunching(_: Notification) {
+        // Demo mode never touches UserDefaults.
+        settings = demoMode.isEnabled
+            ? SettingsStore.inMemory()
+            : SettingsStore(storage: UserDefaultsKeyValueStore())
         let appState = AppState(dictation: demoMode.isEnabled ? demoMode.state : .idle)
         self.appState = appState
         let statusItemController = StatusItemController(appState: appState)

@@ -12,4 +12,12 @@ final class AppDelegateTests: XCTestCase {
         let mode = DemoMode(isEnabled: true, sceneName: "popover")
         XCTAssertEqual(AppDelegate(demoMode: mode).demoMode, mode)
     }
+
+    @MainActor
+    func testDemoModeUsesAnInMemorySettingsStore() {
+        let delegate = AppDelegate(demoMode: DemoMode(isEnabled: true, sceneName: nil))
+        delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
+        delegate.settings?.set(SettingKeys.cleanupEnabled, to: false)
+        XCTAssertNil(UserDefaults.standard.data(forKey: SettingKeys.cleanupEnabled.name))
+    }
 }
