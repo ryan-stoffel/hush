@@ -452,3 +452,4 @@ Rules are unit tested in `QuothCore` (`FillerWordRemover`, `SelfCorrectionParser
 - [ ] Download the zip from the GitHub release on a Mac that has never run Quoth. Expected: it opens after the normal Gatekeeper dialog, with no "damaged" or "unidentified developer" warning.
 - [ ] `spctl -a -vv /Applications/Quoth.app` reports `accepted` and `Notarized Developer ID`. `codesign --verify --deep --strict /Applications/Quoth.app` exits 0.
 - [ ] `lipo -archs /Applications/Quoth.app/Contents/MacOS/Quoth` prints `x86_64 arm64`. The app launches on an Intel Mac, where the local backend reports itself unavailable.
+
