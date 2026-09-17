@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- Global push-to-talk detection: a listen-only event tap and a state machine that reports a bare Fn hold and cancels on taps, Fn shortcuts, and extra modifiers. (#4)
 - Permissions service for Microphone, Accessibility, and Input Monitoring with request and open-System-Settings paths. The popover lists missing permissions with a Grant button. Adds the `popover-permissions` demo scene. (#3)
 - Status item popover showing the current state, the last dictation with a Copy button, the app version, and Quit. Adds the `popover` demo scene and its screenshot test. (#2)
 - Menu bar status item whose icon and accessibility label follow the dictation state (idle, listening, transcribing, error), backed by `DictationState` in `QuothCore` and an observable `AppState` in `QuothKit`. Demo mode accepts `-demoState` to start in a given state. (#1)
