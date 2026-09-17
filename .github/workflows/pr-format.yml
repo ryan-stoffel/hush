@@ -1,0 +1,31 @@
+name: pr-format
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pr-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - name: Check title and Before and After section
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ACTOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ "$ACTOR" = "dependabot[bot]" ]; then
+            echo "Dependabot pull request, format check skipped."
+            exit 0
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.title' > title.txt
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.body // ""' > body.md
+          python3 scripts/check_pr.py title --title-file title.txt
+          python3 scripts/check_pr.py before-after --body-file body.md

@@ -1,0 +1,208 @@
+name: screenshots
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches: [develop]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: screenshots-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  BASE_REF: ${{ github.event.pull_request.base.ref }}
+  # Forks and Dependabot get a read-only token, so they cannot push images or edit the PR body.
+  IS_FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login == 'dependabot[bot]' }}
+
+jobs:
+  screenshots:
+    if: github.event_name == 'pull_request'
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          path: head
+
+      - name: Install XcodeGen
+        run: command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+
+      - name: Find merge base
+        working-directory: head
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          MERGE_BASE="$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")"
+          echo "MERGE_BASE=$MERGE_BASE" >> "$GITHUB_ENV"
+          echo "Merge base: $MERGE_BASE"
+          git worktree add --detach "$GITHUB_WORKSPACE/base" "$MERGE_BASE"
+
+      - name: Cache DerivedData and SwiftPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: |
+            derived-base
+            derived-head
+            ~/Library/Caches/org.swift.swiftpm
+          key: screenshots-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('head/Package.swift', 'head/Package.resolved', 'head/project.yml') }}-${{ github.sha }}
+          restore-keys: |
+            screenshots-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('head/Package.swift', 'head/Package.resolved', 'head/project.yml') }}-
+            screenshots-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Keep incremental builds valid across cache restores
+        run: defaults write com.apple.dt.XCBuild IgnoreFileSystemDeviceInodeChanges -bool YES
+
+      # The capture script always comes from the PR head so that a base commit
+      # that predates the script, or has a broken suite, still yields a table.
+      - name: Capture before (merge base)
+        run: |
+          mkdir -p shots/before
+          if ! DERIVED_DATA_PATH="$GITHUB_WORKSPACE/derived-base" head/scripts/capture-screenshots.sh base shots/before; then
+            echo "::warning::The screenshot suite failed on the merge base. Before images may be missing."
+          fi
+
+      - name: Capture after (PR head)
+        run: |
+          mkdir -p shots/after
+          DERIVED_DATA_PATH="$GITHUB_WORKSPACE/derived-head" head/scripts/capture-screenshots.sh head shots/after
+
+      - name: Upload screenshots as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-pr-${{ github.event.pull_request.number }}
+          path: shots
+          retention-days: 14
+
+      - name: Push images to the screenshots branch
+        if: env.IS_FORK == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          for attempt in 1 2 3 4 5; do
+            rm -rf publish
+            if git ls-remote --exit-code --heads "$REMOTE" screenshots >/dev/null 2>&1; then
+              git clone --quiet --depth 1 --branch screenshots "$REMOTE" publish
+            else
+              mkdir publish
+              git -C publish init --quiet
+              git -C publish checkout --orphan screenshots
+              printf '%s\n' "# Screenshots" "" "Written by the screenshots workflow. One folder per pull request. Do not edit by hand." > publish/README.md
+              git -C publish remote add origin "$REMOTE"
+            fi
+            rm -rf "publish/pr-$PR_NUMBER"
+            mkdir -p "publish/pr-$PR_NUMBER"
+            cp -R shots/before shots/after "publish/pr-$PR_NUMBER/"
+            touch "publish/pr-$PR_NUMBER/before/.gitkeep" "publish/pr-$PR_NUMBER/after/.gitkeep"
+            git -C publish add -A
+            git -C publish -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet --allow-empty -m "chore(ci): screenshots for PR #$PR_NUMBER at ${HEAD_SHA:0:7}"
+            if git -C publish push --quiet origin screenshots; then
+              echo "SCREENSHOTS_SHA=$(git -C publish rev-parse HEAD)" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "Push raced with another run, retrying ($attempt)."
+            sleep $((attempt * 3))
+          done
+          echo "::error::Could not push to the screenshots branch."
+          exit 1
+
+      - name: Write the Before and After table into the PR body
+        if: env.IS_FORK == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PREFIX="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${SCREENSHOTS_SHA}/pr-${PR_NUMBER}"
+          python3 head/scripts/pr_screenshots.py table --before shots/before --after shots/after --url-prefix "$PREFIX" > table.md
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.body // ""' > body.md
+          python3 head/scripts/pr_screenshots.py splice --body-file body.md --table-file table.md > new-body.md
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" -F body=@new-body.md --jq '.html_url'
+          cat table.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify the PR body
+        if: env.IS_FORK == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.body // ""' > final-body.md
+          python3 head/scripts/check_pr.py before-after --body-file final-body.md --require-images
+
+      - name: Note for pull requests from forks
+        if: env.IS_FORK == 'true'
+        run: |
+          echo "::warning::Pull requests from forks get a read-only token. The images are attached to this run as an artifact. A maintainer re-runs the capture from a branch in the main repository."
+
+  # Keeps the images that README.md links to current: screenshots/latest/<scene>.png
+  latest:
+    if: github.event_name == 'push'
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+
+      - name: Cache DerivedData and SwiftPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: |
+            DerivedData
+            ~/Library/Caches/org.swift.swiftpm
+          key: derived-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}-${{ github.sha }}
+          restore-keys: |
+            derived-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}-
+            derived-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Capture
+        run: |
+          mkdir -p "$RUNNER_TEMP/latest"
+          scripts/capture-screenshots.sh . "$RUNNER_TEMP/latest"
+
+      - name: Publish to screenshots/latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          for attempt in 1 2 3 4 5; do
+            rm -rf "$RUNNER_TEMP/publish"
+            if git ls-remote --exit-code --heads "$REMOTE" screenshots >/dev/null 2>&1; then
+              git clone --quiet --depth 1 --branch screenshots "$REMOTE" "$RUNNER_TEMP/publish"
+            else
+              mkdir "$RUNNER_TEMP/publish"
+              git -C "$RUNNER_TEMP/publish" init --quiet
+              git -C "$RUNNER_TEMP/publish" checkout --orphan screenshots
+              printf '%s\n' "# Screenshots" "" "Written by the screenshots workflow. One folder per pull request. Do not edit by hand." > "$RUNNER_TEMP/publish/README.md"
+              git -C "$RUNNER_TEMP/publish" remote add origin "$REMOTE"
+            fi
+            rm -rf "$RUNNER_TEMP/publish/latest"
+            mkdir -p "$RUNNER_TEMP/publish/latest"
+            cp -R "$RUNNER_TEMP/latest/." "$RUNNER_TEMP/publish/latest/"
+            touch "$RUNNER_TEMP/publish/latest/.gitkeep"
+            git -C "$RUNNER_TEMP/publish" add -A
+            if git -C "$RUNNER_TEMP/publish" diff --cached --quiet; then
+              echo "Screenshots unchanged."
+              exit 0
+            fi
+            git -C "$RUNNER_TEMP/publish" -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -m "chore(ci): latest screenshots from develop at ${GITHUB_SHA:0:7}"
+            if git -C "$RUNNER_TEMP/publish" push --quiet origin screenshots; then
+              exit 0
+            fi
+            echo "Push raced with another run, retrying ($attempt)."
+            sleep $((attempt * 3))
+          done
+          echo "::error::Could not push to the screenshots branch."
+          exit 1

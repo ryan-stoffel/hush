@@ -1,0 +1,29 @@
+name: linked-issue
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  linked-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - name: Require Closes or Fixes reference
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ACTOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ "$ACTOR" = "dependabot[bot]" ]; then
+            echo "Dependabot pull request, linked issue check skipped."
+            exit 0
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.body // ""' > body.md
+          python3 scripts/check_pr.py linked-issue --body-file body.md

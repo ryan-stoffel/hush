@@ -1,0 +1,95 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SCHEME: Quoth
+
+jobs:
+  lint:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftFormat and SwiftLint
+        run: |
+          for tool in swiftformat swiftlint; do
+            command -v "$tool" >/dev/null 2>&1 || brew install "$tool"
+          done
+          swiftformat --version
+          swiftlint version
+      - name: Lint
+        run: scripts/lint.sh
+
+  unit-tests:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: |
+            spm-${{ runner.os }}-${{ runner.arch }}-
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Build
+        run: swift build --build-tests
+      - name: Unit tests
+        run: swift test --skip-build
+
+  ui-tests:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+      - name: Cache DerivedData and SwiftPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: |
+            DerivedData
+            ~/Library/Caches/org.swift.swiftpm
+          key: derived-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}-${{ github.sha }}
+          restore-keys: |
+            derived-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}-
+            derived-${{ runner.os }}-${{ runner.arch }}-
+      - name: Keep incremental builds valid across cache restores
+        run: defaults write com.apple.dt.XCBuild IgnoreFileSystemDeviceInodeChanges -bool YES
+      - name: Build app headlessly
+        run: |
+          xcodegen generate --quiet
+          xcodebuild build \
+            -project "$SCHEME.xcodeproj" \
+            -scheme "$SCHEME" \
+            -destination "platform=macOS" \
+            -derivedDataPath DerivedData \
+            CODE_SIGN_IDENTITY=-
+      - name: XCUITests
+        run: scripts/test.sh ui
+        env:
+          DERIVED_DATA_PATH: ${{ github.workspace }}/DerivedData
+      - name: Upload result bundle on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-tests-xcresult
+          path: build/ui-tests.xcresult
+          retention-days: 7

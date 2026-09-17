@@ -1,0 +1,43 @@
+name: branch-name
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check head branch name
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+          ACTOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          pattern='^(feature|bug|chore|docs)/gh-issue-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'
+          if [ "$ACTOR" = "dependabot[bot]" ]; then
+            echo "Dependabot pull request, branch name check skipped."
+            exit 0
+          fi
+          if [ "$BASE_REF" = "main" ]; then
+            if [ "$HEAD_REF" = "develop" ]; then
+              echo "Release pull request from develop into main."
+              exit 0
+            fi
+            echo "::error::Pull requests into main must come from develop. Got '$HEAD_REF'."
+            exit 1
+          fi
+          if printf '%s' "$HEAD_REF" | grep -Eq "$pattern"; then
+            echo "Branch name '$HEAD_REF' is valid."
+            exit 0
+          fi
+          echo "::error::Branch '$HEAD_REF' does not match $pattern"
+          echo "Expected one of:"
+          echo "  feature/gh-issue-<number>-<slug>"
+          echo "  bug/gh-issue-<number>-<slug>"
+          echo "  chore/gh-issue-<number>-<slug>"
+          echo "  docs/gh-issue-<number>-<slug>"
+          exit 1

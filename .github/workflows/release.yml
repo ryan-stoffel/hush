@@ -1,0 +1,201 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SCHEME: Quoth
+  APP_NAME: Quoth
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from tag
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          case "$VERSION" in
+            *-*) echo "PRERELEASE=true" >> "$GITHUB_ENV" ;;
+            *) echo "PRERELEASE=false" >> "$GITHUB_ENV" ;;
+          esac
+
+      - name: Detect optional secrets
+        env:
+          CERT: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
+          NOTARY: ${{ secrets.NOTARY_PASSWORD }}
+          SPARKLE: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          echo "HAS_SIGNING=$([ -n "$CERT" ] && [ -n "$NOTARY" ] && echo true || echo false)" >> "$GITHUB_ENV"
+          echo "HAS_SPARKLE_KEY=$([ -n "$SPARKLE" ] && echo true || echo false)" >> "$GITHUB_ENV"
+
+      - name: Install XcodeGen
+        run: command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+
+      - name: Archive universal Release build
+        run: |
+          xcodegen generate --quiet
+          xcodebuild archive \
+            -project "$SCHEME.xcodeproj" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination "generic/platform=macOS" \
+            -archivePath "build/$APP_NAME.xcarchive" \
+            -derivedDataPath DerivedData \
+            ARCHS="arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            MARKETING_VERSION="${VERSION%%-*}" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CODE_SIGN_IDENTITY=- 
+          mkdir -p build/export
+          cp -R "build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" build/export/
+          lipo -archs "build/export/$APP_NAME.app/Contents/MacOS/$APP_NAME"
+
+      - name: Import Developer ID certificate
+        if: env.HAS_SIGNING == 'true'
+        env:
+          CERT_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$CERT_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Sign and notarize
+        if: env.HAS_SIGNING == 'true'
+        env:
+          DEVELOPER_ID_IDENTITY: ${{ secrets.DEVELOPER_ID_IDENTITY }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: scripts/sign-and-notarize.sh "build/export/$APP_NAME.app" "App/$APP_NAME.entitlements"
+
+      - name: Signing skipped
+        if: env.HAS_SIGNING != 'true'
+        run: |
+          echo "::notice::Signing secrets are not configured. The build is ad-hoc signed and not notarized."
+          echo "UNSIGNED_NOTE=This build is ad-hoc signed and not notarized. macOS Gatekeeper will block it until you allow it in System Settings, Privacy and Security." >> "$GITHUB_ENV"
+
+      - name: Zip
+        run: |
+          ZIP="build/$APP_NAME-$VERSION.zip"
+          ditto -c -k --sequesterRsrc --keepParent "build/export/$APP_NAME.app" "$ZIP"
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+          shasum -a 256 "$ZIP"
+
+      - name: Release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! python3 scripts/changelog_release.py notes --version "$VERSION" > build/notes.md 2>/dev/null || [ ! -s build/notes.md ]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" --jq '.body' > build/notes.md
+          fi
+          if [ -n "${UNSIGNED_NOTE:-}" ]; then
+            printf '\n\n%s\n' "$UNSIGNED_NOTE" >> build/notes.md
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FLAGS=""
+          if [ "$PRERELEASE" = "true" ]; then FLAGS="--prerelease"; fi
+          gh release create "$TAG" "$ZIP" --title "$APP_NAME $VERSION" --notes-file build/notes.md --verify-tag $FLAGS
+
+      - name: Update Sparkle appcast on gh-pages
+        if: env.HAS_SPARKLE_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          SPARKLE_VERSION: "2.10.0"
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/sparkle.tar.xz" "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+          mkdir -p "$RUNNER_TEMP/sparkle" && tar -xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$REMOTE" gh-pages >/dev/null 2>&1; then
+            git clone --quiet --depth 1 --branch gh-pages "$REMOTE" pages
+          else
+            mkdir pages && git -C pages init --quiet && git -C pages checkout --orphan gh-pages && git -C pages remote add origin "$REMOTE"
+          fi
+          mkdir -p updates
+          cp "$ZIP" updates/
+          [ -f pages/appcast.xml ] && cp pages/appcast.xml updates/
+          echo "$SPARKLE_ED_PRIVATE_KEY" | "$RUNNER_TEMP/sparkle/bin/generate_appcast" --ed-key-file - \
+            --download-url-prefix "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/" \
+            --link "https://github.com/$GITHUB_REPOSITORY" \
+            updates
+          cp updates/appcast.xml pages/appcast.xml
+          git -C pages add appcast.xml
+          git -C pages -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -m "chore(release): appcast for $TAG"
+          git -C pages push --quiet origin gh-pages
+
+      - name: Appcast skipped
+        if: env.HAS_SPARKLE_KEY != 'true'
+        run: echo "::notice::SPARKLE_ED_PRIVATE_KEY is not configured. The appcast was not updated."
+
+      - name: Open CHANGELOG pull request against develop
+        if: env.PRERELEASE == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin develop
+          git checkout -B changelog-work origin/develop
+          gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" --jq '.body' > "$RUNNER_TEMP/fallback.md" || true
+          python3 scripts/changelog_release.py cut --version "$VERSION" --date "$(date -u +%Y-%m-%d)" --repo "$GITHUB_REPOSITORY" --fallback-notes "$RUNNER_TEMP/fallback.md"
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "CHANGELOG.md already describes $VERSION."
+            exit 0
+          fi
+          ISSUE_URL="$(gh issue create --title "chore(release): record $VERSION in CHANGELOG" --label chore --label release --body "Created by the release workflow for $TAG.
+
+          - [ ] CHANGELOG.md has a section for $VERSION")"
+          ISSUE="${ISSUE_URL##*/}"
+          BRANCH="chore/gh-issue-$ISSUE-changelog-${VERSION//./-}"
+          git checkout -b "$BRANCH"
+          git add CHANGELOG.md
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -m "chore(release): record $VERSION in CHANGELOG"
+          git push --quiet origin "$BRANCH"
+          gh pr create --base develop --head "$BRANCH" \
+            --title "chore(release): record $VERSION in changelog" \
+            --body "Closes #$ISSUE
+
+          ## Summary
+
+          Adds the $VERSION section to CHANGELOG.md. Opened by the release workflow.
+
+          ## Before and After
+
+          No UI change
+
+          <!-- screenshots:start -->
+          <!-- screenshots:end -->
+
+          Pull requests opened with GITHUB_TOKEN do not start workflows. Close and reopen this pull request to run CI."
