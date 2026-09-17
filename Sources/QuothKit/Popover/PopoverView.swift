@@ -7,6 +7,9 @@ struct PopoverView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            if !model.presentation.missingPermissions.isEmpty {
+                permissionWarnings
+            }
             Divider()
             lastDictation
             Divider()
@@ -31,6 +34,31 @@ struct PopoverView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var permissionWarnings: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(model.presentation.missingPermissions, id: \.self) { permission in
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(permission.displayName) access needed")
+                            .font(.subheadline.weight(.medium))
+                        Text(permission.reason)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Button("Grant") {
+                        Task { await model.grant(permission) }
+                    }
+                    .accessibilityIdentifier("popover.grant.\(permission.rawValue)")
+                }
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.15)))
+        .accessibilityIdentifier("popover.permissions")
     }
 
     @ViewBuilder private var lastDictation: some View {

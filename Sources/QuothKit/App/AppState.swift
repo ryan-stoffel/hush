@@ -6,6 +6,7 @@ import QuothCore
 public final class AppState: ObservableObject {
     @Published public private(set) var dictation: DictationState
     @Published public var lastDictation: String?
+    @Published public var permissions: [Permission: PermissionStatus] = [:]
 
     public init(dictation: DictationState = .idle, lastDictation: String? = nil) {
         self.dictation = dictation

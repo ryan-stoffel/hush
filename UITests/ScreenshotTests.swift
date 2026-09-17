@@ -19,4 +19,9 @@ final class ScreenshotTests: ScreenshotTestCase {
         launch(scene: "popover")
         capture(app.popovers.firstMatch, named: "popover")
     }
+
+    func testPopoverWithMissingPermissions() {
+        launch(scene: "popover-permissions")
+        capture(app.popovers.firstMatch, named: "popover-permissions")
+    }
 }

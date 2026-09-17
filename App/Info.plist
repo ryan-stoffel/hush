@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright 2026 Ryan Stoffel. MIT License.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Quoth records your voice only while you hold the dictation key, and turns it into text on this Mac.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>
