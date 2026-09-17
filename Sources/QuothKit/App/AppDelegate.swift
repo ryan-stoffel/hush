@@ -18,11 +18,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         self.appState = appState
         let statusItemController = StatusItemController(appState: appState)
         self.statusItemController = statusItemController
+        let scene = demoMode.isEnabled ? demoMode.sceneName.flatMap(DemoScene.init(rawValue:)) : nil
+        let permissions: any PermissionsProviding = demoMode.isEnabled
+            ? DemoData.permissions(for: scene)
+            : SystemPermissionsService()
         popoverController = PopoverController(
             statusItem: statusItemController.statusItem,
-            model: PopoverViewModel(appState: appState)
+            model: PopoverViewModel(appState: appState, permissions: permissions)
         )
-        if demoMode.isEnabled, let scene = demoMode.sceneName.flatMap(DemoScene.init(rawValue:)) {
+        if let scene {
             open(scene, appState: appState)
         }
     }
@@ -30,7 +34,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func open(_ scene: DemoScene, appState: AppState) {
         switch scene {
-        case .popover:
+        case .popover, .popoverPermissions:
             appState.lastDictation = DemoData.lastDictation
             popoverController?.showForDemo()
         }

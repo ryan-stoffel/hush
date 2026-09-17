@@ -8,13 +8,20 @@ public struct PopoverPresentation: Equatable, Sendable {
     public let isError: Bool
     public let lastDictation: String?
     public let versionText: String
+    public let missingPermissions: [Permission]
 
-    public init(state: DictationState, lastDictation: String?, version: String) {
+    public init(
+        state: DictationState,
+        lastDictation: String?,
+        version: String,
+        permissions: [Permission: PermissionStatus] = [:]
+    ) {
         statusText = StatusPresentation(state: state).title
         isError = state.kind == .error
         let trimmed = lastDictation?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.lastDictation = (trimmed?.isEmpty ?? true) ? nil : trimmed
         versionText = "Version \(version)"
+        missingPermissions = permissions.isEmpty ? [] : PermissionSummary.missing(in: permissions)
     }
 
     public var showsEmptyHint: Bool {

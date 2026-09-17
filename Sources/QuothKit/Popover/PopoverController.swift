@@ -5,9 +5,11 @@ import SwiftUI
 public final class PopoverController: NSObject {
     private let popover = NSPopover()
     private weak var statusItem: NSStatusItem?
+    private let model: PopoverViewModel
 
     public init(statusItem: NSStatusItem, model: PopoverViewModel) {
         self.statusItem = statusItem
+        self.model = model
         super.init()
         popover.behavior = .transient
         popover.animates = false
@@ -30,6 +32,7 @@ public final class PopoverController: NSObject {
 
     public func show() {
         guard let button = statusItem?.button else { return }
+        model.refreshPermissions()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 

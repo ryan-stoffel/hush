@@ -6,7 +6,13 @@ import XCTest
 final class PopoverViewModelTests: XCTestCase {
     func testFollowsAppState() {
         let state = AppState()
-        let model = PopoverViewModel(appState: state, version: "1", copyText: { _ in }, quitApp: {})
+        let model = PopoverViewModel(
+            appState: state,
+            permissions: FakePermissions.allGranted,
+            version: "1",
+            copyText: { _ in },
+            quitApp: {}
+        )
         XCTAssertTrue(model.presentation.showsEmptyHint)
 
         state.lastDictation = "Hello"
@@ -19,6 +25,7 @@ final class PopoverViewModelTests: XCTestCase {
         var copied: [String] = []
         let model = PopoverViewModel(
             appState: AppState(lastDictation: "Copy me"),
+            permissions: FakePermissions.allGranted,
             version: "1",
             copyText: { copied.append($0) },
             quitApp: {}
@@ -29,7 +36,11 @@ final class PopoverViewModelTests: XCTestCase {
 
     func testCopyDoesNothingWithoutADictation() {
         var copied: [String] = []
-        let model = PopoverViewModel(appState: AppState(), version: "1", copyText: { copied.append($0) }, quitApp: {})
+        let model = PopoverViewModel(
+            appState: AppState(),
+            permissions: FakePermissions.allGranted,
+            version: "1", copyText: { copied.append($0) }, quitApp: {}
+        )
         model.copyLastDictation()
         XCTAssertTrue(copied.isEmpty)
     }
@@ -38,6 +49,7 @@ final class PopoverViewModelTests: XCTestCase {
         var quitCount = 0
         let model = PopoverViewModel(
             appState: AppState(),
+            permissions: FakePermissions.allGranted,
             version: "1",
             copyText: { _ in },
             quitApp: { quitCount += 1 }
