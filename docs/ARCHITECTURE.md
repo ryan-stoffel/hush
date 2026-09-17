@@ -10,6 +10,7 @@ Status as of 2026-09-17: only the project skeleton is merged. That means the men
 - [Goals and constraints](#goals-and-constraints)
 - [Module layout](#module-layout)
 - [Dictation pipeline](#dictation-pipeline)
+- [Cleanup pipeline](#cleanup-pipeline)
 - [Dictation state](#dictation-state)
 - [Command mode](#command-mode)
 - [Protocol boundaries](#protocol-boundaries)
@@ -267,6 +268,21 @@ Stage notes:
 9. **AccessibilityInserter.** Writes `kAXSelectedTextAttribute` on the focused element, then reads the element value back and checks that the text is present. A mismatch or an AX error triggers the paste fallback. See [Decisions and tradeoffs](#decisions-and-tradeoffs).
 10. **PasteInserter.** Snapshots every item and type on the general pasteboard, writes the text together with the transient and concealed marker types that clipboard managers honor, records `changeCount`, posts a synthetic Cmd+V, waits briefly, and restores the snapshot only if `changeCount` is unchanged. If the count moved, the user or another app wrote to the clipboard in the meantime and their content wins.
 11. **HistoryStore.** Appends the final text with a timestamp and the target app. History can be cleared or disabled in settings.
+
+## Cleanup pipeline
+
+Exists today (v0.2, issue #24). `CleanupPipeline` in `QuothCore` runs between transcription and insertion. The overlay keeps showing Transcribing while it runs.
+
+Stage order is the order of `CleanupStages.standard`, and `SettingKeys.cleanupStageIDs` lists the same ids so every stage has a toggle. The planned order is: filler word removal, self-correction, spoken formatting, punctuation and capitalization, dictionary, then the optional model-backed step (`AsyncCleanupStep`), then snippet expansion. Only the stages that are merged appear in `CleanupStages.standard`.
+
+Toggles and fallbacks:
+
+- `cleanup.enabled` is the global toggle. When it is off, every stage is bypassed except stages whose `followsGlobalToggle` is false (spoken formatting, so that "new line" keeps working).
+- Each stage has `cleanup.stage.<id>.enabled`.
+- A stage that throws is skipped. The error goes into the trace and the previous text carries on.
+- The model-backed step has a timeout (5 seconds by default). On timeout or error the rule-based result is used.
+- If the final text is blank, the raw transcript is inserted, so a bug in a stage never makes a dictation vanish.
+- `CleanupResult` carries the raw text, the final text, and a per-stage trace. The trace is dictated text: it stays in memory, is only persisted as part of a history entry, and is never logged.
 
 ## Dictation state
 

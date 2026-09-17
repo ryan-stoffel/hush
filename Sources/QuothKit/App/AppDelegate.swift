@@ -47,7 +47,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             backend: WhisperKitBackend(),
             inserter: PasteInserter(),
             permissions: permissions,
-            overlay: overlayController
+            overlay: overlayController,
+            cleanup: settings.map { CleanupPipeline(stages: CleanupStages.standard, settings: $0) },
+            frontmostBundleIdentifier: { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
         )
         self.coordinator = coordinator
         coordinator.start()
