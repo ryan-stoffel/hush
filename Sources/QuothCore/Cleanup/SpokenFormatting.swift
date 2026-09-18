@@ -22,6 +22,14 @@ public struct SpokenFormatting: CleanupStage {
     }
 }
 
+public enum SpokenVocabulary {
+    /// The command words, written the way the model should spell them, for decoding hints.
+    public static let words: [String] = {
+        var seen = Set<String>()
+        return SpokenCommand.phrases.map { $0.words.joined(separator: " ") }.filter { seen.insert($0).inserted }
+    }()
+}
+
 enum SpokenCommand: Equatable {
     case mark(String, endsSentence: Bool)
     case dash

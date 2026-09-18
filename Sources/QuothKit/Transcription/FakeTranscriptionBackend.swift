@@ -7,6 +7,7 @@ public final class FakeTranscriptionBackend: TranscriptionBackend, @unchecked Se
     private let lock = NSLock()
     private var result: Result<String, TranscriptionError>
     private var transcribed: [AudioClip] = []
+    private var options: [TranscriptionOptions] = []
     private var prepared = 0
 
     public init(result: Result<String, TranscriptionError> = .success("Hello world.")) {
@@ -15,6 +16,10 @@ public final class FakeTranscriptionBackend: TranscriptionBackend, @unchecked Se
 
     public var transcribedClips: [AudioClip] {
         lock.withLock { transcribed }
+    }
+
+    public var receivedOptions: [TranscriptionOptions] {
+        lock.withLock { options }
     }
 
     public var prepareCount: Int {
@@ -30,10 +35,11 @@ public final class FakeTranscriptionBackend: TranscriptionBackend, @unchecked Se
         progress?(.ready)
     }
 
-    public func transcribe(_ audio: AudioClip, options _: TranscriptionOptions) async throws -> Transcript {
+    public func transcribe(_ audio: AudioClip, options: TranscriptionOptions) async throws -> Transcript {
         try TranscriptionRules.validate(audio)
         let current = lock.withLock {
             transcribed.append(audio)
+            self.options.append(options)
             return result
         }
         return try Transcript(text: current.get(), language: "en", audioDuration: audio.duration, backendID: id)

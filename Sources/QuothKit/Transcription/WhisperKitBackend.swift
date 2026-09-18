@@ -6,7 +6,7 @@ import WhisperKit
 
 /// On-device transcription. The only network request it ever makes is the one-time model download.
 public actor WhisperKitBackend: TranscriptionBackend {
-    public static let defaultModel = "openai_whisper-base"
+    public static let defaultModel = "openai_whisper-large-v3-v20240930_turbo"
 
     public nonisolated let id = "whisperkit"
     public nonisolated let sendsAudioOffDevice = false
@@ -70,6 +70,11 @@ public actor WhisperKitBackend: TranscriptionBackend {
         decoding.language = options.language
         decoding.detectLanguage = options.language == nil
         decoding.withoutTimestamps = true
+        if let prompt = VocabularyPrompt.text(for: options.vocabulary), let tokenizer = pipeline.tokenizer {
+            let tokens = tokenizer.encode(text: " " + prompt).filter { $0 < tokenizer.specialTokens.specialTokenBegin }
+            decoding.promptTokens = VocabularyPrompt.trim(tokens)
+            decoding.usePrefillPrompt = true
+        }
         do {
             let results = try await pipeline.transcribe(audioArray: audio.samples, decodeOptions: decoding)
             let text = TranscriptSanitizer.clean(results.map(\.text).joined(separator: " "))

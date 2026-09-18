@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- The default on-device model is now large-v3 turbo (about 630 MB, downloaded on first use), and decoding is primed with the spoken command vocabulary so words like "colon" and "new line" are recognized reliably. (#99)
 - Spoken formatting: say punctuation ("comma", "question mark"), "new line", "new paragraph", "bullet point", or count off "one, two, three" and the text is formatted accordingly. Works even when Cleanup is turned off. (#27)
 - Cleanup pipeline between transcription and insertion, with ordered stages, a global toggle and per-stage toggles, a timeout for model-backed cleanup, and a fallback to the raw transcript. (#24)
 - Typed settings store (`SettingsStore`, `SettingKey`) over UserDefaults with an in-memory variant for demo mode and tests, per-key observation, and reset. (#11)

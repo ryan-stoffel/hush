@@ -224,9 +224,9 @@ Default backend: `WhisperKitBackend`, on device. WhisperKit does not officially 
 
 - [ ] Intel Mac only: the app says clearly that on-device transcription is not available on this Mac. It does not crash and does not start a model download.
 
-First run model download:
+First run model download (the default large-v3 turbo model is about 630 MB):
 
-- [ ] Remove any previously downloaded model so that this is a true first run. The transcription issue records the model folder path here when it lands.
+- [ ] Remove any previously downloaded model so that this is a true first run. The models live in ~/Library/Application Support/Quoth/Models.
 - [ ] The first dictation (or onboarding, v1.0) starts the model download. Progress is visible and moves. The user is told the approximate size.
 - [ ] Dictating while the download is in progress gives a clear "model is still downloading" message. No crash and no silent drop.
 - [ ] Turn Wi-Fi off mid-download. Expected: a clear error. Turn Wi-Fi on: the download resumes or restarts on retry. No corrupt half-model is used.

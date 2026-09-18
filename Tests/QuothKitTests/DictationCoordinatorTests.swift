@@ -82,6 +82,7 @@ final class DictationCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(inserter.insertedTexts, ["Send it Wednesday."])
         XCTAssertEqual(appState.lastDictation, "Send it Wednesday.")
+        XCTAssertEqual(backend.receivedOptions.first?.vocabulary, SpokenVocabulary.words)
         XCTAssertEqual(appState.dictation, .idle)
         XCTAssertEqual(overlay.events, ["listening", "transcribing", "hide"])
     }
