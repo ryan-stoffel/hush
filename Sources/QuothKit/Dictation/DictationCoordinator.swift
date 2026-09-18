@@ -154,7 +154,8 @@ public final class DictationCoordinator {
 
     private func transcribeAndInsert(_ clip: AudioClip) async {
         do {
-            let transcript = try await backend.transcribe(clip, options: .automatic)
+            let options = TranscriptionOptions(vocabulary: SpokenVocabulary.words)
+            let transcript = try await backend.transcribe(clip, options: options)
             guard !transcript.text.isEmpty else {
                 finishQuietly()
                 return
