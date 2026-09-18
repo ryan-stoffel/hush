@@ -71,6 +71,46 @@ final class FoundationModelsCleanerTests: XCTestCase {
         XCTAssertNotNil(result.trace.last?.errorDescription)
     }
 
+    func testAssetFailuresMapToNotReadyAndOthersKeepTheirCode() {
+        let asset = NSError(domain: "ModelManagerServices.ModelManagerError", code: 1013)
+        let classifier = NSError(
+            domain: "com.apple.SensitiveContentAnalysisML",
+            code: 15,
+            userInfo: [NSMultipleUnderlyingErrorsKey: [asset]]
+        )
+        let wrapped = NSError(
+            domain: "FoundationModels.LanguageModelSession.GenerationError",
+            code: -1,
+            userInfo: [NSMultipleUnderlyingErrorsKey: [classifier]]
+        )
+        XCTAssertEqual(
+            SystemLanguageModelResponder.map(wrapped),
+            .unavailable(SystemLanguageModelResponder.assetsNotReady)
+        )
+        let other = NSError(
+            domain: "SomeDomain",
+            code: 7,
+            userInfo: [NSUnderlyingErrorKey: NSError(domain: "Deep", code: 9)]
+        )
+        XCTAssertEqual(SystemLanguageModelResponder.map(other), .failed("Deep 9"))
+    }
+
+    func testAssetFailureStartsACooldown() async {
+        let responder = FakeResponder()
+        responder.reply = .failure(LLMError.unavailable("assets"))
+        var clock = Date(timeIntervalSince1970: 0)
+        let cleaner = FoundationModelsCleaner(model: responder) { clock }
+        _ = try? await cleaner.clean(LLMCleanupRequest(text: "hello there my friend"))
+        var availability = await cleaner.availability()
+        XCTAssertEqual(availability, .unavailable("assets"))
+        _ = try? await cleaner.clean(LLMCleanupRequest(text: "hello there my friend again"))
+        XCTAssertEqual(responder.prompts.count, 1)
+
+        clock = clock.addingTimeInterval(FoundationModelsCleaner.cooldown + 1)
+        availability = await cleaner.availability()
+        XCTAssertEqual(availability, .available)
+    }
+
     func testSystemAvailabilityReportsAReadableReason() {
         let availability = SystemLanguageModelResponder().availability()
         if case let .unavailable(reason) = availability {

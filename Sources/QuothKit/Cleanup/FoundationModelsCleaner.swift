@@ -18,14 +18,29 @@ public final class FoundationModelsCleaner: LLMCleaner {
     public let displayName = "Apple Intelligence (on device)"
     public let isLocal = true
 
-    private let model: any LanguageModelResponding
+    /// How long the cleaner stays out of the way after the system model failed to load its assets.
+    public static let cooldown: TimeInterval = 60
 
-    public init(model: (any LanguageModelResponding)? = nil) {
+    private let model: any LanguageModelResponding
+    private let now: () -> Date
+    private let lock = NSLock()
+    private var unavailableUntil: Date?
+    private var lastFailure: String?
+
+    public init(model: (any LanguageModelResponding)? = nil, now: @escaping () -> Date = Date.init) {
         self.model = model ?? SystemLanguageModelResponder()
+        self.now = now
     }
 
     public func availability() async -> LLMAvailability {
-        model.availability()
+        let cooled = lock.withLock { () -> String? in
+            guard let until = unavailableUntil, now() < until else { return nil }
+            return lastFailure
+        }
+        if let cooled {
+            return .unavailable(cooled)
+        }
+        return model.availability()
     }
 
     /// Loads the model ahead of the first dictation so the first cleanup is not slow.
@@ -39,14 +54,24 @@ public final class FoundationModelsCleaner: LLMCleaner {
     }
 
     public func clean(_ request: LLMCleanupRequest) async throws -> String {
-        if case let .unavailable(reason) = model.availability() {
+        if case let .unavailable(reason) = await availability() {
             throw LLMError.unavailable(reason)
         }
-        return try await model.respond(
-            instructions: PromptBuilder.instructions(for: request),
-            examples: PromptBuilder.examples(for: request.editLevel),
-            prompt: PromptBuilder.message(for: request)
-        )
+        do {
+            return try await model.respond(
+                instructions: PromptBuilder.instructions(for: request),
+                examples: PromptBuilder.examples(for: request.editLevel),
+                prompt: PromptBuilder.message(for: request)
+            )
+        } catch let LLMError.unavailable(reason) {
+            // The system says the model is available but its assets are not: back off instead of
+            // delaying every dictation by a request that will fail.
+            lock.withLock {
+                unavailableUntil = now().addingTimeInterval(Self.cooldown)
+                lastFailure = reason
+            }
+            throw LLMError.unavailable(reason)
+        }
     }
 }
 
@@ -84,7 +109,7 @@ public struct SystemLanguageModelResponder: LanguageModelResponding {
         } catch let error as LanguageModelSession.GenerationError {
             throw Self.map(error)
         } catch {
-            throw LLMError.failed(error.localizedDescription)
+            throw Self.map(error as NSError)
         }
         #else
         throw LLMError.unavailable(Self.needsNewerMacOS)
@@ -92,6 +117,27 @@ public struct SystemLanguageModelResponder: LanguageModelResponding {
     }
 
     static let needsNewerMacOS = "On-device cleanup needs macOS 26 or later"
+    static let assetsNotReady = "Apple Intelligence is still preparing its models. Try again in a few minutes."
+
+    /// Failures that come back as plain NSErrors. Asset problems in the safety classifier or the model
+    /// manager mean the system is not ready yet; everything else keeps its domain and code.
+    static func map(_ error: NSError) -> LLMError {
+        var seen: [NSError] = []
+        var queue = [error]
+        while let next = queue.popLast() {
+            seen.append(next)
+            queue += (next.userInfo[NSMultipleUnderlyingErrorsKey] as? [NSError]) ?? []
+            if let underlying = next.userInfo[NSUnderlyingErrorKey] as? NSError {
+                queue.append(underlying)
+            }
+        }
+        let domains = seen.map(\.domain)
+        if domains.contains(where: { $0.contains("ModelManager") || $0.contains("SensitiveContentAnalysis") }) {
+            return .unavailable(assetsNotReady)
+        }
+        let deepest = seen.last ?? error
+        return .failed("\(deepest.domain) \(deepest.code)")
+    }
 
     #if canImport(FoundationModels)
     /// The examples go in as earlier turns of the conversation, which is what the model follows best.
