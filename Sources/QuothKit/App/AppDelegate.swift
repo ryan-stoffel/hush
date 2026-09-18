@@ -40,9 +40,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Demo mode stays away from the microphone, event taps, Accessibility and the network.
         guard !demoMode.isEnabled else { return }
-        let llmCleaner = FoundationModelsCleaner()
+        let foundationModels = FoundationModelsCleaner()
+        let llmCleaner = FirstAvailableCleaner([foundationModels] + (settings.flatMap(Self.localServerCleaner) ?? []))
         if settings?.get(SettingKeys.stageEnabled(LLMCleanupStep.stageID)) == true {
-            Task { await llmCleaner.prewarm() }
+            Task { await foundationModels.prewarm() }
         }
         let coordinator = DictationCoordinator(
             appState: appState,
@@ -63,6 +64,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         self.coordinator = coordinator
         coordinator.start()
+    }
+
+    static func localServerCleaner(from settings: SettingsStore) -> [any LLMCleaner] {
+        let baseURL = settings.get(SettingKeys.localServerBaseURL)
+        guard settings.get(SettingKeys.localServerEnabled),
+              case let .success(url) = LoopbackURLValidator.validate(baseURL) else {
+            return []
+        }
+        return [LocalServerCleaner(baseURL: url, model: settings.get(SettingKeys.localServerModel))]
     }
 
     @MainActor
