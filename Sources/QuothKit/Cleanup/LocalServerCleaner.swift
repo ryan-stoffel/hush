@@ -57,13 +57,13 @@ public final class LocalServerCleaner: LLMCleaner, @unchecked Sendable {
         if case let .unavailable(reason) = await availability() {
             throw LLMError.unavailable(reason)
         }
-        let body = ChatRequest(
-            model: model,
-            messages: [
-                .init(role: "system", content: PromptBuilder.instructions(for: request)),
-                .init(role: "user", content: PromptBuilder.message(for: request)),
-            ]
-        )
+        var messages = [ChatRequest.Message(role: "system", content: PromptBuilder.instructions(for: request))]
+        for example in PromptBuilder.examples(for: request.editLevel) {
+            messages.append(.init(role: "user", content: example.transcript))
+            messages.append(.init(role: "assistant", content: example.formatted))
+        }
+        messages.append(.init(role: "user", content: PromptBuilder.message(for: request)))
+        let body = ChatRequest(model: model, messages: messages)
         var urlRequest = URLRequest(url: baseURL.appendingPathComponent("chat/completions"))
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")

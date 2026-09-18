@@ -7,8 +7,8 @@ import FoundationModels
 /// Seam around the system model so the cleaner can be tested without Apple Intelligence.
 public protocol LanguageModelResponding: Sendable {
     func availability() -> LLMAvailability
-    func prewarm(instructions: String) async
-    func respond(instructions: String, prompt: String) async throws -> String
+    func prewarm(instructions: String, examples: [PromptExample]) async
+    func respond(instructions: String, examples: [PromptExample], prompt: String) async throws -> String
 }
 
 /// On-device cleanup through Apple's Foundation Models framework. Nothing leaves the machine.
@@ -31,7 +31,11 @@ public final class FoundationModelsCleaner: LLMCleaner {
     /// Loads the model ahead of the first dictation so the first cleanup is not slow.
     public func prewarm() async {
         guard model.availability().isAvailable else { return }
-        await model.prewarm(instructions: PromptBuilder.instructions(for: LLMCleanupRequest(text: "")))
+        let request = LLMCleanupRequest(text: "")
+        await model.prewarm(
+            instructions: PromptBuilder.instructions(for: request),
+            examples: PromptBuilder.examples(for: request.editLevel)
+        )
     }
 
     public func clean(_ request: LLMCleanupRequest) async throws -> String {
@@ -40,6 +44,7 @@ public final class FoundationModelsCleaner: LLMCleaner {
         }
         return try await model.respond(
             instructions: PromptBuilder.instructions(for: request),
+            examples: PromptBuilder.examples(for: request.editLevel),
             prompt: PromptBuilder.message(for: request)
         )
     }
@@ -62,19 +67,20 @@ public struct SystemLanguageModelResponder: LanguageModelResponding {
         #endif
     }
 
-    public func prewarm(instructions: String) async {
+    public func prewarm(instructions: String, examples: [PromptExample]) async {
         #if canImport(FoundationModels)
         guard #available(macOS 26, *) else { return }
-        LanguageModelSession(instructions: instructions).prewarm()
+        Self.session(instructions: instructions, examples: examples).prewarm()
         #endif
     }
 
-    public func respond(instructions: String, prompt: String) async throws -> String {
+    public func respond(instructions: String, examples: [PromptExample], prompt: String) async throws -> String {
         #if canImport(FoundationModels)
         guard #available(macOS 26, *) else { throw LLMError.unavailable(Self.needsNewerMacOS) }
-        let session = LanguageModelSession(instructions: instructions)
+        let session = Self.session(instructions: instructions, examples: examples)
         do {
-            return try await session.respond(to: prompt).content
+            // Greedy sampling keeps the same transcript producing the same text.
+            return try await session.respond(to: prompt, options: GenerationOptions(sampling: .greedy)).content
         } catch let error as LanguageModelSession.GenerationError {
             throw Self.map(error)
         } catch {
@@ -88,6 +94,28 @@ public struct SystemLanguageModelResponder: LanguageModelResponding {
     static let needsNewerMacOS = "On-device cleanup needs macOS 26 or later"
 
     #if canImport(FoundationModels)
+    /// The examples go in as earlier turns of the conversation, which is what the model follows best.
+    @available(macOS 26, *)
+    static func session(instructions: String, examples: [PromptExample]) -> LanguageModelSession {
+        func segment(_ text: String) -> FoundationModels.Transcript.Segment {
+            .text(FoundationModels.Transcript.TextSegment(content: text))
+        }
+        var entries: [FoundationModels.Transcript.Entry] = [
+            .instructions(FoundationModels.Transcript.Instructions(
+                segments: [segment(instructions)],
+                toolDefinitions: []
+            )),
+        ]
+        for example in examples {
+            entries.append(.prompt(FoundationModels.Transcript.Prompt(segments: [segment(example.transcript)])))
+            entries.append(.response(FoundationModels.Transcript.Response(
+                assetIDs: [],
+                segments: [segment(example.formatted)]
+            )))
+        }
+        return LanguageModelSession(transcript: FoundationModels.Transcript(entries: entries))
+    }
+
     @available(macOS 26, *)
     static func message(for reason: SystemLanguageModel.Availability.UnavailableReason) -> String {
         switch reason {

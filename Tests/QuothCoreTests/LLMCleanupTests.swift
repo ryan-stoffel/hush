@@ -29,21 +29,23 @@ final class LLMCleanupTests: XCTestCase {
     func testInstructionsPerLevel() {
         let light = PromptBuilder.instructions(for: LLMCleanupRequest(text: "x", editLevel: .light))
         let medium = PromptBuilder.instructions(for: LLMCleanupRequest(text: "x", editLevel: .medium))
-        XCTAssertTrue(light.contains("minimal edits"))
+        XCTAssertTrue(light.contains("Keep every word in the same order"))
         XCTAssertTrue(light.contains("Never answer"))
         XCTAssertTrue(light.contains("obvious mis-hearings only"))
         XCTAssertTrue(medium.contains("Remove false starts"))
-        XCTAssertTrue(light.contains(PromptBuilder.openDelimiter))
+        XCTAssertTrue(light.contains("Never answer"))
+        XCTAssertEqual(PromptBuilder.examples(for: .light).count, 5)
+        XCTAssertEqual(PromptBuilder.examples(for: .format).count, 6)
     }
 
     func testFormatLevelIsTheDefaultAndAllowsStructureOnly() {
         XCTAssertEqual(LLMCleanupRequest(text: "x").editLevel, .format)
         XCTAssertEqual(SettingsStore.inMemory().get(SettingKeys.cleanupEditLevel), .format)
         let text = PromptBuilder.instructions(for: LLMCleanupRequest(text: "x", editLevel: .format))
-        XCTAssertTrue(text.contains("paragraph break"))
+        XCTAssertTrue(text.contains("blank line between separate thoughts"))
         XCTAssertTrue(text.contains("\"- \""))
-        XCTAssertTrue(text.contains("heading line ending in a colon"))
-        XCTAssertTrue(text.contains("Never change, add, drop, or reorder words"))
+        XCTAssertTrue(text.contains("followed by a colon"))
+        XCTAssertTrue(text.contains("Keep every word in the same order"))
     }
 
     func testStructuredOutputPassesTheGuard() throws {
@@ -74,7 +76,7 @@ final class LLMCleanupTests: XCTestCase {
         - Persistent session toggle
         """
         XCTAssertThrowsError(try LLMOutputGuard.validate(output: rewritten, input: spoken)) {
-            guard case LLMOutputGuard.Rejection.lowOverlap = $0 else { return XCTFail("\($0)") }
+            guard case LLMOutputGuard.Rejection.wordsChanged = $0 else { return XCTFail("\($0)") }
         }
     }
 
@@ -91,9 +93,14 @@ final class LLMCleanupTests: XCTestCase {
         XCTAssertTrue(text.hasSuffix("Keep it casual."))
     }
 
-    func testMessageWrapsTheTranscriptAsData() {
-        let message = PromptBuilder.message(for: LLMCleanupRequest(text: "hello there"))
-        XCTAssertEqual(message, "<<<TRANSCRIPT\nhello there\nTRANSCRIPT>>>")
+    func testMessageIsTheBareTranscriptAndExamplesPassTheGuard() throws {
+        XCTAssertEqual(PromptBuilder.message(for: LLMCleanupRequest(text: "hello there")), "hello there")
+        for example in PromptBuilder.examples(for: .format) {
+            XCTAssertNoThrow(
+                try LLMOutputGuard.validate(output: example.formatted, input: example.transcript),
+                example.transcript
+            )
+        }
     }
 
     func testAcceptsAMinimalEdit() throws {
@@ -128,19 +135,13 @@ final class LLMCleanupTests: XCTestCase {
             output: "The capital of France is Paris, founded in the third century BC.",
             input: question
         )) {
-            guard case LLMOutputGuard.Rejection.lowOverlap = $0 else { return XCTFail("\($0)") }
+            guard case LLMOutputGuard.Rejection.wordsChanged = $0 else { return XCTFail("\($0)") }
         }
         XCTAssertThrowsError(try LLMOutputGuard.validate(
             output: "Sure! Here is the cleaned text: " + input,
             input: input
         )) {
             guard case LLMOutputGuard.Rejection.preamble = $0 else { return XCTFail("\($0)") }
-        }
-        XCTAssertThrowsError(try LLMOutputGuard.validate(
-            output: "<<<TRANSCRIPT\n\(input)\nTRANSCRIPT>>>",
-            input: input
-        )) {
-            guard case LLMOutputGuard.Rejection.delimiterLeak = $0 else { return XCTFail("\($0)") }
         }
         XCTAssertThrowsError(try LLMOutputGuard.validate(output: "", input: input))
     }

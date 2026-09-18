@@ -1,4 +1,5 @@
 import Foundation
+import os
 import QuothCore
 
 @MainActor
@@ -29,6 +30,8 @@ public final class DictationCoordinator {
     private let cleanup: (any TextCleaning)?
     private let frontmostBundleIdentifier: () -> String?
     private let errorDuration: TimeInterval
+
+    private static let log = Logger(subsystem: AppInfo.bundleIdentifier, category: "cleanup")
 
     public private(set) var pipelineTask: Task<Void, Never>?
     public private(set) var preloadTask: Task<Void, Never>?
@@ -178,7 +181,13 @@ public final class DictationCoordinator {
             language: transcript.language,
             bundleIdentifier: frontmostBundleIdentifier()
         )
-        return await cleanup.run(transcript.text, context: context).finalText
+        let result = await cleanup.run(transcript.text, context: context)
+        // Reasons only. Dictated text never goes to the log.
+        for entry in result.trace {
+            guard let reason = entry.errorDescription else { continue }
+            Self.log.error("stage \(entry.stageID, privacy: .public) fell back: \(reason, privacy: .public)")
+        }
+        return result.finalText
     }
 
     private func finishQuietly() {
