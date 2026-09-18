@@ -73,8 +73,10 @@ public enum LLMOutputGuard {
         return text
     }
 
+    /// List markers and line breaks are structure, not words, so they never count against overlap.
     static func words(in text: String) -> [String] {
         text.lowercased()
+            .replacingOccurrences(of: #"(?m)^\s*(?:[-*]|\d+[.)])\s+"#, with: " ", options: .regularExpression)
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { $0.count > 1 }
     }

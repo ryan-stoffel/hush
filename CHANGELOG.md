@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- The cleanup model now adds paragraph breaks, bullets, and numbered lists that the speaker implied, without spoken commands. Spoken commands still work as overrides. (#105)
 - On macOS 26 with Apple Intelligence turned on, an on-device model fixes spelling, casing, and punctuation after the rule-based stages. Nothing leaves the machine; when Apple Intelligence is off the rule-based text is used. (#30)
 - Model-backed cleanup layer: cleaner protocol, prompt builder with light and medium edit levels, and output guardrails that reject answers, rewrites, and dropped dictionary terms. No model ships in this change. (#29)
 - Numbered lists are detected when the model writes no punctuation between items, and "colen" and "semi colon" are accepted as spellings of colon and semicolon. (#100)

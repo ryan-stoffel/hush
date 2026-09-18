@@ -14,7 +14,7 @@ public struct LLMCleanupRequest: Equatable, Sendable {
         language: String? = nil,
         toneInstruction: String? = nil,
         dictionaryTerms: [String] = [],
-        editLevel: EditLevel = .light
+        editLevel: EditLevel = .format
     ) {
         self.text = text
         self.language = language
@@ -29,6 +29,9 @@ public enum EditLevel: String, Codable, CaseIterable, Sendable {
     case light
     /// Also drops false starts and tightens wording.
     case medium
+    /// Light edits plus structure: paragraph breaks and lists inferred from what was said,
+    /// so spoken commands become an override rather than a requirement.
+    case format
 }
 
 public enum LLMAvailability: Equatable, Sendable {
