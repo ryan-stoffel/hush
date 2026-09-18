@@ -43,8 +43,10 @@ final class DictationCoordinatorTests: XCTestCase {
     private var inserter = FakeTextInserter()
     private var permissions = FakePermissions.allGranted
     private var overlay = FakeOverlay()
+    private var history = HistoryStore(persistence: InMemoryHistoryPersistence(), settings: .inMemory())
 
     override func setUp() async throws {
+        history = HistoryStore(persistence: InMemoryHistoryPersistence(), settings: .inMemory())
         appState = AppState()
         hotkey = FakeHotkeyMonitor()
         capture = FakeAudioCapture()
@@ -215,7 +217,8 @@ final class DictationCoordinatorTests: XCTestCase {
             permissions: permissions,
             overlay: overlay,
             cleanup: cleanup,
-            frontmostBundleIdentifier: { "com.apple.TextEdit" }
+            history: history,
+            frontmostApp: { FrontmostApp(bundleIdentifier: "com.apple.TextEdit", name: "TextEdit") }
         )
         coordinator.start()
         coordinator.handle(.pressed)
@@ -225,6 +228,40 @@ final class DictationCoordinatorTests: XCTestCase {
         XCTAssertEqual(appState.lastDictation, "cleaned: Send it Wednesday.")
         XCTAssertEqual(cleanup.contexts, [CleanupContext(language: "en", bundleIdentifier: "com.apple.TextEdit")])
         XCTAssertEqual(overlay.events, ["listening", "transcribing", "hide"])
+
+        let entry = history.entries.first
+        XCTAssertEqual(history.entries.count, 1)
+        XCTAssertEqual(entry?.rawTranscript, "Send it Wednesday.")
+        XCTAssertEqual(entry?.cleanedText, "cleaned: Send it Wednesday.")
+        XCTAssertEqual(entry?.appName, "TextEdit")
+        XCTAssertEqual(entry?.insertionStrategy, .clipboardPaste)
+        XCTAssertEqual(entry?.backendID, "fake")
+        XCTAssertNil(entry?.cleanupNote)
+    }
+
+    func testFailedInsertionIsRecordedWithoutAStrategyAndCancelIsNot() async {
+        inserter = FakeTextInserter(error: .accessibilityNotGranted)
+        let coordinator = DictationCoordinator(
+            appState: appState,
+            hotkey: hotkey,
+            capture: capture,
+            backend: backend,
+            inserter: inserter,
+            permissions: permissions,
+            overlay: overlay,
+            history: history
+        )
+        coordinator.start()
+        coordinator.handle(.pressed)
+        coordinator.handle(.cancelled)
+        XCTAssertTrue(history.entries.isEmpty)
+
+        coordinator.handle(.pressed)
+        coordinator.handle(.released)
+        await coordinator.pipelineTask?.value
+        XCTAssertEqual(history.entries.count, 1)
+        XCTAssertNil(history.entries.first?.insertionStrategy)
+        XCTAssertEqual(history.entries.first?.cleanupNote, "Accessibility access is off")
     }
 
     func testReleasedWithoutListeningDoesNothing() {

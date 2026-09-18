@@ -2,6 +2,16 @@ import Foundation
 import os
 import QuothCore
 
+public struct FrontmostApp: Equatable, Sendable {
+    public let bundleIdentifier: String?
+    public let name: String?
+
+    public init(bundleIdentifier: String?, name: String?) {
+        self.bundleIdentifier = bundleIdentifier
+        self.name = name
+    }
+}
+
 @MainActor
 public protocol OverlayPresenting: AnyObject {
     func showListening()
@@ -28,7 +38,8 @@ public final class DictationCoordinator {
     private let permissions: any PermissionsProviding
     private let overlay: OverlayPresenting
     private let cleanup: (any TextCleaning)?
-    private let frontmostBundleIdentifier: () -> String?
+    private let history: HistoryStore?
+    private let frontmostApp: () -> FrontmostApp?
     private let errorDuration: TimeInterval
 
     private static let log = Logger(subsystem: AppInfo.bundleIdentifier, category: "cleanup")
@@ -48,7 +59,8 @@ public final class DictationCoordinator {
         permissions: any PermissionsProviding,
         overlay: OverlayPresenting,
         cleanup: (any TextCleaning)? = nil,
-        frontmostBundleIdentifier: @escaping () -> String? = { nil },
+        history: HistoryStore? = nil,
+        frontmostApp: @escaping () -> FrontmostApp? = { nil },
         errorDuration: TimeInterval = 3,
         hotkeyRetryInterval: TimeInterval = 3
     ) {
@@ -60,7 +72,8 @@ public final class DictationCoordinator {
         self.permissions = permissions
         self.overlay = overlay
         self.cleanup = cleanup
-        self.frontmostBundleIdentifier = frontmostBundleIdentifier
+        self.history = history
+        self.frontmostApp = frontmostApp
         self.errorDuration = errorDuration
         self.hotkeyRetryInterval = hotkeyRetryInterval
     }
@@ -156,6 +169,7 @@ public final class DictationCoordinator {
     }
 
     private func transcribeAndInsert(_ clip: AudioClip) async {
+        let app = frontmostApp()
         do {
             let options = TranscriptionOptions(vocabulary: SpokenVocabulary.words)
             let transcript = try await backend.transcribe(clip, options: options)
@@ -164,10 +178,18 @@ public final class DictationCoordinator {
                 return
             }
             // The overlay keeps showing Transcribing while cleanup runs.
-            let text = await cleanedText(for: transcript)
-            _ = try await inserter.insert(text)
-            appState.lastDictation = text
-            finishQuietly()
+            let cleaned = await cleanedText(for: transcript, app: app)
+            do {
+                let result = try await inserter.insert(cleaned.text)
+                appState.lastDictation = cleaned.text
+                record(transcript, cleaned, app: app, strategy: result.strategy, note: cleaned.note)
+                finishQuietly()
+            } catch {
+                let note = [cleaned.note, DictationFailure.message(for: error)].compactMap { $0 }
+                    .joined(separator: ". ")
+                record(transcript, cleaned, app: app, strategy: nil, note: note)
+                throw error
+            }
         } catch TranscriptionError.tooShort {
             finishQuietly()
         } catch {
@@ -175,19 +197,47 @@ public final class DictationCoordinator {
         }
     }
 
-    private func cleanedText(for transcript: Transcript) async -> String {
-        guard let cleanup else { return transcript.text }
+    private struct CleanedText {
+        let text: String
+        let note: String?
+    }
+
+    private func cleanedText(for transcript: Transcript, app: FrontmostApp?) async -> CleanedText {
+        guard let cleanup else { return CleanedText(text: transcript.text, note: nil) }
         let context = CleanupContext(
             language: transcript.language,
-            bundleIdentifier: frontmostBundleIdentifier()
+            bundleIdentifier: app?.bundleIdentifier
         )
         let result = await cleanup.run(transcript.text, context: context)
+        var notes: [String] = []
         // Reasons only. Dictated text never goes to the log.
         for entry in result.trace {
             guard let reason = entry.errorDescription else { continue }
             Self.log.error("stage \(entry.stageID, privacy: .public) fell back: \(reason, privacy: .public)")
+            notes.append("\(entry.stageID): \(reason)")
         }
-        return result.finalText
+        return CleanedText(text: result.finalText, note: notes.isEmpty ? nil : notes.joined(separator: "; "))
+    }
+
+    private func record(
+        _ transcript: Transcript,
+        _ cleaned: CleanedText,
+        app: FrontmostApp?,
+        strategy: InsertionStrategy?,
+        note: String?
+    ) {
+        history?.append(HistoryEntry(
+            date: Date(),
+            rawTranscript: transcript.text,
+            cleanedText: cleaned.text,
+            appBundleIdentifier: app?.bundleIdentifier,
+            appName: app?.name,
+            language: transcript.language,
+            backendID: transcript.backendID,
+            audioDuration: transcript.audioDuration,
+            insertionStrategy: strategy,
+            cleanupNote: note
+        ))
     }
 
     private func finishQuietly() {

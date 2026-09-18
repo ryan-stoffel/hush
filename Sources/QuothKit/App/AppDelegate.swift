@@ -5,6 +5,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     public let demoMode: DemoMode
     @MainActor public private(set) var appState: AppState?
     @MainActor public private(set) var settings: SettingsStore?
+    @MainActor public private(set) var history: HistoryStore?
     @MainActor private var statusItemController: StatusItemController?
     @MainActor private var popoverController: PopoverController?
     @MainActor private var overlayController: OverlayPanelController?
@@ -21,6 +22,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         settings = demoMode.isEnabled
             ? SettingsStore.inMemory()
             : SettingsStore(storage: UserDefaultsKeyValueStore())
+        history = settings.map { settings in
+            demoMode.isEnabled
+                ? HistoryStore(persistence: InMemoryHistoryPersistence(DemoData.historyEntries), settings: settings)
+                : HistoryStore.onDisk(settings: settings)
+        }
         let appState = AppState(dictation: demoMode.isEnabled ? demoMode.state : .idle)
         self.appState = appState
         let statusItemController = StatusItemController(appState: appState)
@@ -60,7 +66,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                     settings: settings
                 )
             },
-            frontmostBundleIdentifier: { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
+            history: history,
+            frontmostApp: {
+                NSWorkspace.shared.frontmostApplication.map {
+                    FrontmostApp(bundleIdentifier: $0.bundleIdentifier, name: $0.localizedName)
+                }
+            }
         )
         self.coordinator = coordinator
         coordinator.start()

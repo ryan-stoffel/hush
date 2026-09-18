@@ -1,6 +1,6 @@
 import Foundation
 
-public enum InsertionStrategy: String, Sendable {
+public enum InsertionStrategy: String, Codable, Sendable {
     case accessibility
     case clipboardPaste
 }
