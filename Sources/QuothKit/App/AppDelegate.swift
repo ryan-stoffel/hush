@@ -40,6 +40,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Demo mode stays away from the microphone, event taps, Accessibility and the network.
         guard !demoMode.isEnabled else { return }
+        let llmCleaner = FoundationModelsCleaner()
+        if settings?.get(SettingKeys.stageEnabled(LLMCleanupStep.stageID)) == true {
+            Task { await llmCleaner.prewarm() }
+        }
         let coordinator = DictationCoordinator(
             appState: appState,
             hotkey: EventTapHotkeyMonitor(),
@@ -48,7 +52,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             inserter: PasteInserter(),
             permissions: permissions,
             overlay: overlayController,
-            cleanup: settings.map { CleanupPipeline(stages: CleanupStages.standard, settings: $0) },
+            cleanup: settings.map { settings in
+                CleanupPipeline(
+                    stages: CleanupStages.standard,
+                    asyncStep: LLMCleanupStep(cleaner: llmCleaner) { settings.get(SettingKeys.cleanupEditLevel) },
+                    settings: settings
+                )
+            },
             frontmostBundleIdentifier: { NSWorkspace.shared.frontmostApplication?.bundleIdentifier }
         )
         self.coordinator = coordinator
