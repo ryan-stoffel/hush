@@ -55,12 +55,14 @@ enum SpokenCommand: Equatable {
         (["close", "quote"], .close("\"")),
         (["end", "quote"], .close("\"")),
         (["bullet", "point"], .bullet),
+        (["semi", "colon"], .mark(";", endsSentence: false)),
         (["next", "bullet"], .bullet),
         (["newline"], .lineBreak(count: 1)),
         (["unquote"], .close("\"")),
         (["period"], .mark(".", endsSentence: true)),
         (["comma"], .mark(",", endsSentence: false)),
         (["colon"], .mark(":", endsSentence: false)),
+        (["colen"], .mark(":", endsSentence: false)),
         (["semicolon"], .mark(";", endsSentence: false)),
         (["dash"], .dash),
     ]
@@ -264,26 +266,41 @@ enum SpokenListFormatter {
     /// of a clause, and the list needs at least two markers in order starting from one.
     static func format(_ line: String) -> String {
         let words = line.split(separator: " ").map(String.init)
-        var positions: [Int] = []
-        for (index, word) in words.enumerated() where positions.count < markers.count {
-            let core = word.trimmingCharacters(in: .punctuationCharacters).lowercased()
-            guard markers[positions.count].contains(core), isClauseStart(index, in: words) else { continue }
-            // "number one" style lead-ins are part of the marker.
-            positions.append(index)
+        let positions = markerPositions(in: words, requireClauseStart: true)
+        let chosen: [Int]
+        if positions.count >= 2 {
+            chosen = positions
+        } else {
+            // Larger models often write no punctuation at all: "one apples two bananas three cherries".
+            // A run of three or more markers in order, each a short phrase apart, is still a list.
+            let loose = markerPositions(in: words, requireClauseStart: false)
+            let spaced = zip(loose, loose.dropFirst()).allSatisfy { (2 ... 7).contains($1 - $0) }
+            chosen = loose.count >= 3 && spaced && isClauseStart(loose[0], in: words) ? loose : []
         }
-        guard positions.count >= 2 else { return line }
+        guard chosen.count >= 2 else { return line }
 
         var lines: [String] = []
-        let lead = words[..<positions[0]].joined(separator: " ")
+        let lead = words[..<chosen[0]].joined(separator: " ")
         if !lead.isEmpty {
             lines.append(lead)
         }
-        for (number, start) in positions.enumerated() {
-            let end = number + 1 < positions.count ? positions[number + 1] : words.count
+        for (number, start) in chosen.enumerated() {
+            let end = number + 1 < chosen.count ? chosen[number + 1] : words.count
             let item = cleanItem(words[(start + 1) ..< end].joined(separator: " "))
             lines.append("\(number + 1). \(item)")
         }
         return lines.joined(separator: "\n")
+    }
+
+    private static func markerPositions(in words: [String], requireClauseStart: Bool) -> [Int] {
+        var positions: [Int] = []
+        for (index, word) in words.enumerated() where positions.count < markers.count {
+            let core = word.trimmingCharacters(in: .punctuationCharacters).lowercased()
+            guard markers[positions.count].contains(core) else { continue }
+            guard !requireClauseStart || isClauseStart(index, in: words) else { continue }
+            positions.append(index)
+        }
+        return positions
     }
 
     private static func isClauseStart(_ index: Int, in words: [String]) -> Bool {
