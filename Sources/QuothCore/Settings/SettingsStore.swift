@@ -38,8 +38,9 @@ public final class UserDefaultsKeyValueStore: KeyValueStoring {
         self.defaults = defaults
     }
 
+    /// Values written with `defaults write <bundle id> <key> '[value]'` arrive as strings and are accepted too.
     public func data(forKey key: String) -> Data? {
-        defaults.data(forKey: key)
+        defaults.data(forKey: key) ?? defaults.string(forKey: key).map { Data($0.utf8) }
     }
 
     public func set(_ data: Data?, forKey key: String) {

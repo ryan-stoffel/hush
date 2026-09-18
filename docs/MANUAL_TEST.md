@@ -402,6 +402,7 @@ Demo mode isolation (this protects CI, and works on the skeleton today):
 - [ ] Dictate a sentence in another language with auto-detect on. Expected: English command words are not converted.
 - [ ] On macOS 26 with Apple Intelligence turned on: say "what is the capital of France question mark". Expected: "What is the capital of France?" inserted, and never an answer. The on-device cleanup pass only fixes spelling, casing, and punctuation.
 - [ ] With Apple Intelligence turned off: dictation still works and the rule-based result is inserted without delay.
+- [ ] Ollama case. Install Ollama, run `ollama pull llama3.2`, then enable the local server cleaner (the Cleanup tab arrives with #33; until then use `defaults write io.github.ryan-stoffel.quoth cleanup.localServer.enabled '[true]'` and relaunch). Dictate the no-commands text below. Expected: structured output, and `nettop` shows connections to 127.0.0.1:11434 only. Quit Ollama and dictate again: the rule-based text is inserted after at most 5 seconds.
 - [ ] With an on-device model available, say without any commands: "add a login page to the app, requirements, email and password fields, a remember me checkbox, steps, first create the form component, second wire it to the auth API, third add tests". Expected: a first sentence, a "Requirements:" line with two "- " items, a "Steps:" line with three numbered items, and no word changed.
 
 ## 14. Later milestones
