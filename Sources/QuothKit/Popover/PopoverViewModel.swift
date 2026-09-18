@@ -10,6 +10,7 @@ public final class PopoverViewModel: ObservableObject {
     private let permissions: any PermissionsProviding
     private let copyText: (String) -> Void
     private let quitApp: () -> Void
+    private let openHistory: () -> Void
     private var cancellables: Set<AnyCancellable> = []
 
     public init(
@@ -17,12 +18,14 @@ public final class PopoverViewModel: ObservableObject {
         permissions: any PermissionsProviding,
         version: String = AppInfo.version(),
         copyText: @escaping (String) -> Void = GeneralPasteboard.copy,
-        quitApp: @escaping () -> Void = { NSApplication.shared.terminate(nil) }
+        quitApp: @escaping () -> Void = { NSApplication.shared.terminate(nil) },
+        openHistory: @escaping () -> Void = {}
     ) {
         self.appState = appState
         self.permissions = permissions
         self.copyText = copyText
         self.quitApp = quitApp
+        self.openHistory = openHistory
         appState.permissions = permissions.snapshot()
         presentation = PopoverPresentation(
             state: appState.dictation,
@@ -55,6 +58,10 @@ public final class PopoverViewModel: ObservableObject {
             permissions.openSettings(for: permission)
         }
         refreshPermissions()
+    }
+
+    public func showHistory() {
+        openHistory()
     }
 
     public func quit() {

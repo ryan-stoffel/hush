@@ -43,6 +43,10 @@ public final class PopoverController: NSObject, NSPopoverDelegate {
         popover.isShown
     }
 
+    public func close() {
+        popover.performClose(nil)
+    }
+
     @objc public func toggle(_: Any?) {
         if popover.isShown {
             popover.performClose(nil)

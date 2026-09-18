@@ -34,4 +34,16 @@ final class ScreenshotTests: ScreenshotTestCase {
         launch(scene: "overlay-transcribing")
         capture(app.dialogs["overlay.panel"], named: "overlay-transcribing")
     }
+
+    func testHistory() {
+        launch(scene: "history")
+        let window = app.windows["history.window"]
+        XCTAssertTrue(window.waitForExistence(timeout: 15))
+        // Select the newest entry so the detail pane is captured too.
+        let firstRow = window.outlines.firstMatch.cells.firstMatch
+        if firstRow.waitForExistence(timeout: 5) {
+            firstRow.click()
+        }
+        capture(window, named: "history")
+    }
 }

@@ -91,6 +91,8 @@ struct PopoverView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
+            Button("History") { model.showHistory() }
+                .accessibilityIdentifier("popover.history")
             Button("Quit \(AppInfo.name)") { model.quit() }
                 .accessibilityIdentifier("popover.quit")
         }
