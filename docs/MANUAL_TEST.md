@@ -400,6 +400,8 @@ Demo mode isolation (this protects CI, and works on the skeleton today):
 - [ ] Say "I have one apple and two pears". Expected: no list.
 - [ ] Dictate a "new line" into Terminal or iTerm2 with a harmless command typed first (for example `echo`). Note whether the shell runs the line. A pasted line break can execute a command in a terminal without bracketed paste; record the result here.
 - [ ] Dictate a sentence in another language with auto-detect on. Expected: English command words are not converted.
+- [ ] On macOS 26 with Apple Intelligence turned on: say "what is the capital of France question mark". Expected: "What is the capital of France?" inserted, and never an answer. The on-device cleanup pass only fixes spelling, casing, and punctuation.
+- [ ] With Apple Intelligence turned off: dictation still works and the rule-based result is inserted without delay.
 
 ## 14. Later milestones
 
