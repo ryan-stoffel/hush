@@ -85,8 +85,11 @@ final class LocalServerCleanerTests: XCTestCase {
         XCTAssertEqual(body?["temperature"] as? Double, 0)
         XCTAssertEqual(body?["stream"] as? Bool, false)
         let messages = body?["messages"] as? [[String: String]]
-        XCTAssertEqual(messages?.map { $0["role"] }, ["system", "user"])
-        XCTAssertTrue(messages?[1]["content"]?.contains("<<<TRANSCRIPT\nhello there my friend\nTRANSCRIPT>>>") == true)
+        XCTAssertEqual(messages?.first?["role"], "system")
+        XCTAssertEqual(messages?.last?["role"], "user")
+        XCTAssertEqual(messages?.last?["content"], "hello there my friend")
+        // system, six example pairs for the format level, then the transcript
+        XCTAssertEqual(messages?.count, 1 + 6 * 2 + 1)
     }
 
     func testHTTPErrorsAndMalformedJSONFail() async {

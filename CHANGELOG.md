@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- Cleanup guardrails now reject any model output that changes, drops, or reorders words, drops a line break, or uses markdown, and the model is taught by example so questions stay questions and structure is added around the exact spoken words. (#108)
 - Cleanup can use a local OpenAI-compatible server such as Ollama or LM Studio (loopback only). Apple Intelligence is tried first, the local server second. (#31)
 - The cleanup model now adds paragraph breaks, bullets, and numbered lists that the speaker implied, without spoken commands. Spoken commands still work as overrides. (#105)
 - On macOS 26 with Apple Intelligence turned on, an on-device model fixes spelling, casing, and punctuation after the rule-based stages. Nothing leaves the machine; when Apple Intelligence is off the rule-based text is used. (#30)
