@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- Model-backed cleanup layer: cleaner protocol, prompt builder with light and medium edit levels, and output guardrails that reject answers, rewrites, and dropped dictionary terms. No model ships in this change. (#29)
 - Numbered lists are detected when the model writes no punctuation between items, and "colen" and "semi colon" are accepted as spellings of colon and semicolon. (#100)
 - The default on-device model is now large-v3 turbo (about 630 MB, downloaded on first use), and decoding is primed with the spoken command vocabulary so words like "colon" and "new line" are recognized reliably. (#99)
 - Spoken formatting: say punctuation ("comma", "question mark"), "new line", "new paragraph", "bullet point", or count off "one, two, three" and the text is formatted accordingly. Works even when Cleanup is turned off. (#27)
