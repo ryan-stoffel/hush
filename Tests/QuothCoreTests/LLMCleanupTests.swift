@@ -36,6 +36,48 @@ final class LLMCleanupTests: XCTestCase {
         XCTAssertTrue(light.contains(PromptBuilder.openDelimiter))
     }
 
+    func testFormatLevelIsTheDefaultAndAllowsStructureOnly() {
+        XCTAssertEqual(LLMCleanupRequest(text: "x").editLevel, .format)
+        XCTAssertEqual(SettingsStore.inMemory().get(SettingKeys.cleanupEditLevel), .format)
+        let text = PromptBuilder.instructions(for: LLMCleanupRequest(text: "x", editLevel: .format))
+        XCTAssertTrue(text.contains("paragraph break"))
+        XCTAssertTrue(text.contains("\"- \""))
+        XCTAssertTrue(text.contains("heading line ending in a colon"))
+        XCTAssertTrue(text.contains("Never change, add, drop, or reorder words"))
+    }
+
+    func testStructuredOutputPassesTheGuard() throws {
+        let spoken = "add a login page to the app requirements email and password fields a remember me checkbox "
+            + "steps first create the form component second wire it to the auth API third add tests"
+        let structured = """
+        Add a login page to the app.
+
+        Requirements:
+        - Email and password fields
+        - A remember me checkbox
+
+        Steps:
+        1. Create the form component
+        2. Wire it to the auth API
+        3. Add tests
+        """
+        XCTAssertEqual(try LLMOutputGuard.validate(output: structured, input: spoken), structured)
+    }
+
+    func testStructuredOutputThatChangedWordsIsRejected() {
+        let spoken = "add a login page to the app requirements email and password fields a remember me checkbox"
+        let rewritten = """
+        Implement authentication.
+
+        Requirements:
+        - Credentials form
+        - Persistent session toggle
+        """
+        XCTAssertThrowsError(try LLMOutputGuard.validate(output: rewritten, input: spoken)) {
+            guard case LLMOutputGuard.Rejection.lowOverlap = $0 else { return XCTFail("\($0)") }
+        }
+    }
+
     func testInstructionsCarryLanguageTermsAndTone() {
         let request = LLMCleanupRequest(
             text: "x",
@@ -161,8 +203,7 @@ final class LLMCleanupTests: XCTestCase {
         XCTAssertEqual(failed.finalText, "what is the capital of france?")
     }
 
-    func testLLMStageHasAToggleAndAnEditLevelSetting() {
+    func testLLMStageHasAToggle() {
         XCTAssertTrue(SettingKeys.cleanupStageIDs.contains("llm"))
-        XCTAssertEqual(SettingsStore.inMemory().get(SettingKeys.cleanupEditLevel), .light)
     }
 }

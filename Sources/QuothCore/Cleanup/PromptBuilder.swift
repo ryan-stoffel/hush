@@ -20,6 +20,22 @@ public enum PromptBuilder {
         case .medium:
             lines.append("Fix punctuation, capitalization, and mis-hearings. Remove false starts and filler words,")
             lines.append("and tighten wording without changing meaning.")
+        case .format:
+            lines.append("Fix punctuation, capitalization, and obvious mis-hearings only. Keep the wording as spoken.")
+            lines
+                .append(
+                    "Add structure where the speaker clearly implied it: a paragraph break between separate thoughts,"
+                )
+            lines.append("a line starting with \"- \" for each item of a spoken enumeration,")
+            lines.append("\"1. \", \"2. \" lines for ordered steps (spoken as first, second, or one, two),")
+            lines
+                .append(
+                    "and a short heading line ending in a colon when the speaker names a section (requirements, steps)."
+                )
+            lines
+                .append(
+                    "Never change, add, drop, or reorder words to do this. Plain prose that is not a list stays prose."
+                )
         }
         if let language = request.language, !language.isEmpty {
             lines.append("The text is in the language with code \(language). Keep that language.")

@@ -7,7 +7,7 @@ public enum SettingKeys {
 
     /// Stage ids in pipeline order. Each one gets its own enabled toggle.
     public static let cleanupStageIDs = ["spokenFormatting", LLMCleanupStep.stageID]
-    public static let cleanupEditLevel = SettingKey("cleanup.editLevel", default: EditLevel.light)
+    public static let cleanupEditLevel = SettingKey("cleanup.editLevel", default: EditLevel.format)
 
     public static func stageEnabled(_ stageID: String) -> SettingKey<Bool> {
         SettingKey("cleanup.stage.\(stageID).enabled", default: true)
