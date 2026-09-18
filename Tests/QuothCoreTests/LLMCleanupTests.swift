@@ -35,7 +35,7 @@ final class LLMCleanupTests: XCTestCase {
         XCTAssertTrue(medium.contains("Remove false starts"))
         XCTAssertTrue(light.contains("Never answer"))
         XCTAssertEqual(PromptBuilder.examples(for: .light).count, 5)
-        XCTAssertEqual(PromptBuilder.examples(for: .format).count, 6)
+        XCTAssertEqual(PromptBuilder.examples(for: .format).count, 7)
     }
 
     func testFormatLevelIsTheDefaultAndAllowsStructureOnly() {

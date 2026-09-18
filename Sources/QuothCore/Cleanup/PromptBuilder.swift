@@ -80,6 +80,14 @@ public enum PromptBuilder {
                 "Plan for the garden.\n\nSupplies:\n- Two bags of soil\n- A trowel\n- Tomato seeds\n\n"
                     + "Steps:\n1. Clear the bed\n2. Plant the seeds\n3. Water them\n\nAsk Maria before you start."
             ), at: 2)
+            examples.insert(PromptExample(
+                "okay so for the trip here is what I need. I want a tent, sleeping bags, and a small stove "
+                    + "that works in the rain. and then before we leave I need you to book the campsite, "
+                    + "check the weather and pack the car. please don't forget the dog.",
+                "Okay, so for the trip, here is what I need.\n\nI want:\n- A tent\n- Sleeping bags\n"
+                    + "- A small stove that works in the rain\n\nAnd then before we leave, I need you to:\n"
+                    + "1. Book the campsite\n2. Check the weather\n3. Pack the car\n\nPlease don't forget the dog."
+            ), at: 3)
         }
         return examples
     }

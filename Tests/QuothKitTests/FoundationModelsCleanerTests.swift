@@ -117,5 +117,17 @@ final class FoundationModelsCleanerTests: XCTestCase {
         )
         XCTAssertTrue(structure.finalText.lowercased().contains("signup page"), structure.finalText)
         print("LIVE structure:\n" + structure.finalText, "\n->", structure.trace.last?.errorDescription ?? "accepted")
+
+        let prose = await pipeline.run(
+            "Okay, I want to add a login page to the app. Here are some of my requirements. I want an email and "
+                + "password field, a remember me checkbox, show errors that are in line and not in an alert. And then "
+                + "to do this, I need you to create a form component, wire it to the auth API and add tests. "
+                + "Please do not touch the signup page.",
+            context: context
+        )
+        XCTAssertTrue(prose.finalText.contains("- A remember me checkbox"), prose.finalText)
+        XCTAssertTrue(prose.finalText.contains("2. Wire it to the auth API"), prose.finalText)
+        XCTAssertTrue(prose.finalText.hasSuffix("Please do not touch the signup page."), prose.finalText)
+        print("LIVE prose:\n" + prose.finalText, "\n->", prose.trace.last?.errorDescription ?? "accepted")
     }
 }
