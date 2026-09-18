@@ -21,7 +21,16 @@ public enum SettingKeys {
         SettingKey("cleanup.stage.\(stageID).enabled", default: true)
     }
 
+    // History. Text only, local only, capped.
+    public static let historyEnabled = SettingKey("history.enabled", default: true)
+    public static let historyMaxCount = SettingKey("history.maxCount", default: 500)
+    /// Zero keeps entries forever.
+    public static let historyMaxAgeDays = SettingKey("history.maxAgeDays", default: 30)
+
     public static let allNames: [String] = [
+        historyEnabled.name,
+        historyMaxCount.name,
+        historyMaxAgeDays.name,
         cleanupEnabled.name,
         cleanupEditLevel.name,
         localServerEnabled.name,

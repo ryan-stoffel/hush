@@ -12,6 +12,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
+- Dictations are recorded locally (text only, never audio) with a cap on count and age, a disable switch, and clear all. (#38)
 - The status item popover now opens attached to the menu bar instead of about 110 points below it. (#112)
 - Prose-style dictations such as "I want X, Y, and Z" now become bullet lists, and "I need you to A, B and C" becomes numbered steps. The cleanup guard never lets more than four words change, so dropped sentences are always rejected. (#110)
 - Cleanup guardrails now reject any model output that changes, drops, or reorders words, drops a line break, or uses markdown, and the model is taught by example so questions stay questions and structure is added around the exact spoken words. (#108)
