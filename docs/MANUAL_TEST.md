@@ -424,7 +424,15 @@ Rules are unit tested in `QuothCore` (`FillerWordRemover`, `SelfCorrectionParser
 - [ ] Entries survive a relaunch, and live in a JSON file under `~/Library/Application Support/Quoth`.
 - [ ] Removing an entry takes effect on the next dictation without a relaunch.
 
-### History (v0.2)
+### History (v0.2, window merged)
+
+- [ ] Open the popover and click History. The window lists dictations newest first, grouped by Today, Yesterday, and dates.
+- [ ] Select an entry: the Inserted text and the Heard transcript appear, with words that cleanup removed struck through in red, plus language, model, audio length, insertion strategy, and app.
+- [ ] Copy for Inserted and Copy for Heard put the right text on the clipboard.
+- [ ] Type in the search field: matches on heard text, inserted text, and app name, ignoring case and accents.
+- [ ] Delete removes the entry and selects the next one. Clear All asks for confirmation, then empties the list and ~/Library/Application Support/Quoth/history.json.
+- [ ] A dictation whose insertion failed shows "Not inserted" in the list and the reason in the note.
+- [ ] With history turned off (`defaults write io.github.ryan-stoffel.quoth history.enabled '[false]'`, relaunch), new dictations are not recorded and the window offers to turn history back on.
 
 - [ ] Each dictation appears in the History window with the right text and time. Newest first.
 - [ ] "Clear history" empties the window and the file on disk: check the JSON store for leftover text.

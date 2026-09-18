@@ -10,6 +10,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor private var popoverController: PopoverController?
     @MainActor private var overlayController: OverlayPanelController?
     @MainActor private var coordinator: DictationCoordinator?
+    @MainActor private var historyWindow: HistoryWindowController?
 
     public init(demoMode: DemoMode = DemoMode(arguments: ProcessInfo.processInfo.arguments)) {
         self.demoMode = demoMode
@@ -35,9 +36,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let permissions: any PermissionsProviding = demoMode.isEnabled
             ? DemoData.permissions(for: scene)
             : SystemPermissionsService()
+        if let settings, let history {
+            historyWindow = HistoryWindowController(model: HistoryViewModel(store: history, settings: settings))
+        }
         popoverController = PopoverController(
             statusItem: statusItemController.statusItem,
-            model: PopoverViewModel(appState: appState, permissions: permissions)
+            model: PopoverViewModel(appState: appState, permissions: permissions) { [weak self] in
+                self?.popoverController?.close()
+                self?.historyWindow?.show()
+            }
         )
         let overlayController = OverlayPanelController()
         self.overlayController = overlayController
@@ -45,27 +52,41 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             open(scene, appState: appState)
         }
         // Demo mode stays away from the microphone, event taps, Accessibility and the network.
-        guard !demoMode.isEnabled else { return }
+        guard !demoMode.isEnabled, let settings else { return }
+        coordinator = makeCoordinator(
+            appState: appState,
+            permissions: permissions,
+            overlay: overlayController,
+            settings: settings
+        )
+        coordinator?.start()
+    }
+
+    @MainActor
+    private func makeCoordinator(
+        appState: AppState,
+        permissions: any PermissionsProviding,
+        overlay: OverlayPanelController,
+        settings: SettingsStore
+    ) -> DictationCoordinator {
         let foundationModels = FoundationModelsCleaner()
-        let llmCleaner = FirstAvailableCleaner([foundationModels] + (settings.flatMap(Self.localServerCleaner) ?? []))
-        if settings?.get(SettingKeys.stageEnabled(LLMCleanupStep.stageID)) == true {
+        let llmCleaner = FirstAvailableCleaner([foundationModels] + Self.localServerCleaner(from: settings))
+        if settings.get(SettingKeys.stageEnabled(LLMCleanupStep.stageID)) {
             Task { await foundationModels.prewarm() }
         }
-        let coordinator = DictationCoordinator(
+        return DictationCoordinator(
             appState: appState,
             hotkey: EventTapHotkeyMonitor(),
             capture: AudioCaptureService(),
             backend: WhisperKitBackend(),
             inserter: PasteInserter(),
             permissions: permissions,
-            overlay: overlayController,
-            cleanup: settings.map { settings in
-                CleanupPipeline(
-                    stages: CleanupStages.standard,
-                    asyncStep: LLMCleanupStep(cleaner: llmCleaner) { settings.get(SettingKeys.cleanupEditLevel) },
-                    settings: settings
-                )
-            },
+            overlay: overlay,
+            cleanup: CleanupPipeline(
+                stages: CleanupStages.standard,
+                asyncStep: LLMCleanupStep(cleaner: llmCleaner) { settings.get(SettingKeys.cleanupEditLevel) },
+                settings: settings
+            ),
             history: history,
             frontmostApp: {
                 NSWorkspace.shared.frontmostApplication.map {
@@ -73,8 +94,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         )
-        self.coordinator = coordinator
-        coordinator.start()
     }
 
     static func localServerCleaner(from settings: SettingsStore) -> [any LLMCleaner] {
@@ -103,6 +122,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             overlayController?.showStatic(mode: .listening)
         case .overlayTranscribing:
             overlayController?.showStatic(mode: .transcribing)
+        case .history:
+            historyWindow?.show(selecting: DemoData.historyEntries.first?.id)
         }
     }
 

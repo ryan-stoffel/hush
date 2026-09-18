@@ -7,6 +7,7 @@ public enum DemoScene: String, CaseIterable, Sendable {
     case popoverPermissions = "popover-permissions"
     case overlayListening = "overlay-listening"
     case overlayTranscribing = "overlay-transcribing"
+    case history
 }
 
 public enum DemoData {
