@@ -140,6 +140,45 @@ final class SpokenFormattingTests: XCTestCase {
         }
     }
 
+    /// Transcripts from large-v3 turbo, which writes almost no punctuation.
+    func testListsWithoutPunctuation() throws {
+        let cases: [(String, String)] = [
+            (
+                "shopping list colon new line one apples two bananas three cherries",
+                "shopping list:\n1. Apples\n2. Bananas\n3. Cherries"
+            ),
+            ("one apples two bananas three cherries", "1. Apples\n2. Bananas\n3. Cherries"),
+            (
+                "first open the app second hold the key third start talking",
+                "1. Open the app\n2. Hold the key\n3. Start talking"
+            ),
+            (
+                "steps colon one open it two hold it three talk four release",
+                "steps:\n1. Open it\n2. Hold it\n3. Talk\n4. Release"
+            ),
+        ]
+        for (input, expected) in cases {
+            XCTAssertEqual(try format(input), expected, input)
+        }
+    }
+
+    func testLooseMarkersNeedThreeInOrderAtAClauseStart() throws {
+        let sentences = [
+            "one apples two bananas",
+            "I have one apple and two pears and three plums",
+            "one two three go",
+            "we need one more day two more people and three more weeks of testing before we ship anything",
+        ]
+        for sentence in sentences {
+            XCTAssertEqual(try format(sentence), sentence, sentence)
+        }
+    }
+
+    func testModelSpellingsOfCommands() throws {
+        XCTAssertEqual(try format("Shopping list colen new line milk"), "Shopping list:\nMilk")
+        XCTAssertEqual(try format("red semi colon blue"), "red; blue")
+    }
+
     func testOtherLanguagesAreLeftAlone() throws {
         XCTAssertEqual(try format("hola comma que tal", language: "es"), "hola comma que tal")
         XCTAssertEqual(try format("hello comma there", language: nil), "hello, there")
