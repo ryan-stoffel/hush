@@ -96,6 +96,17 @@ final class LLMOutputGuardLiveCasesTests: XCTestCase {
         }
     }
 
+    func testADroppedSentenceOnALongDictationIsRejected() {
+        let sentence = "please do not touch the signup page"
+        let body = Array(repeating: "we talked about the plan for the release and the follow up work", count: 5)
+            .joined(separator: " ")
+        let input = body + " " + sentence
+        XCTAssertThrowsError(try LLMOutputGuard.validate(output: body.capitalized + ".", input: input)) {
+            guard case LLMOutputGuard.Rejection.wordsChanged = $0 else { return XCTFail("\($0)") }
+        }
+        XCTAssertEqual(LLMOutputGuard.maximumChangedWords, 4)
+    }
+
     func testLongestCommonSubsequence() {
         XCTAssertEqual(LLMOutputGuard.longestCommonSubsequence(["a", "b", "c", "d"], ["a", "c", "d"]), 3)
         XCTAssertEqual(LLMOutputGuard.longestCommonSubsequence(["a", "b"], ["b", "a"]), 1)

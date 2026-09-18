@@ -88,8 +88,8 @@ final class LocalServerCleanerTests: XCTestCase {
         XCTAssertEqual(messages?.first?["role"], "system")
         XCTAssertEqual(messages?.last?["role"], "user")
         XCTAssertEqual(messages?.last?["content"], "hello there my friend")
-        // system, six example pairs for the format level, then the transcript
-        XCTAssertEqual(messages?.count, 1 + 6 * 2 + 1)
+        // system, seven example pairs for the format level, then the transcript
+        XCTAssertEqual(messages?.count, 1 + 7 * 2 + 1)
     }
 
     func testHTTPErrorsAndMalformedJSONFail() async {

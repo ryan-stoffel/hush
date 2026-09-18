@@ -7,8 +7,10 @@ import Foundation
 public enum LLMOutputGuard {
     public static let minimumLengthRatio = 0.5
     public static let maximumLengthRatio = 1.5
-    /// Share of words that may differ, to leave room for spelling fixes. At least one word is always allowed.
+    /// Share of words that may differ, to leave room for spelling fixes. At least one word is always allowed,
+    /// and never more than `maximumChangedWords`, so a dropped sentence cannot hide in a long dictation.
     public static let maximumChangedWordShare = 0.2
+    public static let maximumChangedWords = 4
     public static let minimumWordCount = 4
 
     public enum Rejection: Error, Equatable {
@@ -51,7 +53,8 @@ public enum LLMOutputGuard {
         let common = longestCommonSubsequence(inputWords, outputWords)
         let missing = inputWords.count - common
         let added = outputWords.count - common
-        let allowed = max(1, Int((Double(inputWords.count) * maximumChangedWordShare).rounded(.down)))
+        let share = Int((Double(inputWords.count) * maximumChangedWordShare).rounded(.down))
+        let allowed = max(1, min(share, maximumChangedWords))
         guard missing <= allowed, added <= allowed else {
             throw Rejection.wordsChanged(missing: missing, added: added)
         }
