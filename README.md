@@ -62,15 +62,19 @@ The module layout and the reasoning behind it are in [docs/ARCHITECTURE.md](docs
 
 ## Install
 
-There is no release yet. To run Hush today, follow [Building from source](#building-from-source). What you get is the skeleton described in [Status](#status).
+With Homebrew:
 
-Once releases exist, install will be:
+```sh
+brew tap ryan-stoffel/taps
+brew trust ryan-stoffel/taps   # Homebrew 7 and later
+brew install --cask --no-quarantine ryan-stoffel/taps/hush
+```
 
-1. Download `Hush-<version>.zip` (for example `Hush-1.0.0.zip`) from [Releases](https://github.com/ryan-stoffel/hush/releases).
-2. Unzip it and move `Hush.app` to `/Applications`.
-3. Open it. Hush appears in the menu bar, not in the Dock.
+The fully qualified name matters: the main Homebrew tap has an unrelated cask called `hush`. Later, `brew upgrade --cask hush` moves to the newest build. Every merge to `develop` publishes a development build (versions like `0.2.0-dev.140`) and updates the cask, so upgrades are frequent; a final release on `main` updates the same cask.
 
-The signed and notarized release is a v1.0 goal. The release workflow signs with a Developer ID and notarizes only when the signing secrets are configured, and skips that step otherwise. A build without Developer ID signing is blocked by Gatekeeper on first launch. To allow it, open System Settings, Privacy and Security, scroll to the message about Hush, and choose Open Anyway.
+Without Homebrew: download `Hush-<version>.zip` from [Releases](https://github.com/ryan-stoffel/hush/releases), unzip it, and move `Hush.app` to `/Applications`. Hush appears in the menu bar, not in the Dock.
+
+Builds are not notarized yet (a v1.0 goal), which is why `--no-quarantine` is needed. Without it, Gatekeeper blocks the app on first launch; to allow it once, open System Settings, Privacy and Security, scroll to the message about Hush, and choose Open Anyway. Until builds are signed with a persistent certificate, each upgrade also asks for the three permissions again. `docs/RELEASING.md` explains both.
 
 ## Permissions
 

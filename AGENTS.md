@@ -78,7 +78,7 @@ Longer form: `docs/ARCHITECTURE.md`.
 | `Tests/HushCoreTests/` | Unit tests for Core. |
 | `Tests/HushKitTests/` | Unit tests for Kit pieces that run headlessly, using fakes. |
 | `UITests/` | XCUITest screenshot suite: `ScreenshotHarness.swift` (base class `ScreenshotTestCase`), `ScreenshotTests.swift`. |
-| `scripts/` | `bootstrap.sh`, `lint.sh`, `test.sh`, `capture-screenshots.sh`, `pr_screenshots.py`, `check_pr.py`, `changelog_release.py`, `sign-and-notarize.sh`. |
+| `scripts/` | `bootstrap.sh`, `lint.sh`, `test.sh`, `capture-screenshots.sh`, `pr_screenshots.py`, `check_pr.py`, `changelog_release.py`, `sign.sh`, `notarize.sh`, `update_cask.py`. |
 | `docs/` | `ARCHITECTURE.md`, `RESEARCH.md`, `RELEASING.md`, `MANUAL_TEST.md`. |
 | `.github/` | Workflows, issue and PR templates, `CODEOWNERS`, `dependabot.yml`. |
 
@@ -144,7 +144,7 @@ UI tests launch the real app and drive the screen. They need a logged-in GUI ses
 ## Branch rules
 
 - `main`: releases only. Protected. Changes arrive only by PR from `develop`, with passing CI and one approving review. Merge commit (no squash).
-- `develop`: integration branch. Protected. Requires a PR, passing CI, and a linked issue. Squash merge only.
+- `develop`: integration branch. Protected. Requires a PR, passing CI, and a linked issue. Squash merge only. Every push to `develop` publishes a dev pre-release (`v<version>-dev.<run>`) and updates the Homebrew cask, so a merged PR reaches users on the next `brew upgrade`.
 - Work branches start from `develop` and are named exactly:
   - `feature/gh-issue-<number>-<slug>`
   - `bug/gh-issue-<number>-<slug>`

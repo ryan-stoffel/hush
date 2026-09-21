@@ -43,9 +43,9 @@ jobs:
           path: |
             .build
             ~/Library/Caches/org.swift.swiftpm
-          key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          key: spm-${{ github.event.repository.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
           restore-keys: |
-            spm-${{ runner.os }}-${{ runner.arch }}-
+            spm-${{ github.event.repository.name }}-${{ runner.os }}-${{ runner.arch }}-
       - name: Toolchain
         run: |
           xcodebuild -version
@@ -68,10 +68,10 @@ jobs:
           path: |
             DerivedData
             ~/Library/Caches/org.swift.swiftpm
-          key: derived-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}-${{ github.sha }}
+          key: derived-${{ github.event.repository.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}-${{ github.sha }}
           restore-keys: |
-            derived-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}-
-            derived-${{ runner.os }}-${{ runner.arch }}-
+            derived-${{ github.event.repository.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}-
+            derived-${{ github.event.repository.name }}-${{ runner.os }}-${{ runner.arch }}-
       - name: Keep incremental builds valid across cache restores
         run: defaults write com.apple.dt.XCBuild IgnoreFileSystemDeviceInodeChanges -bool YES
       - name: Build app headlessly

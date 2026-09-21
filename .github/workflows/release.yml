@@ -1,8 +1,14 @@
 name: release
 
+# Two channels share this workflow:
+# - dev: every push to develop builds and publishes a pre-release v<MARKETING_VERSION>-dev.<run>
+# - final: a v* tag pushed from main builds and publishes a release
+# Both update the Homebrew cask in ryan-stoffel/homebrew-taps when TAP_TOKEN is configured.
 on:
   push:
+    branches: [develop]
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,6 +22,7 @@ concurrency:
 env:
   SCHEME: Hush
   APP_NAME: Hush
+  TAP_REPO: ryan-stoffel/homebrew-taps
 
 jobs:
   release:
@@ -26,25 +33,42 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read version from tag
+      - name: Work out the version
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          VERSION="${TAG#v}"
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          case "$VERSION" in
-            *-*) echo "PRERELEASE=true" >> "$GITHUB_ENV" ;;
-            *) echo "PRERELEASE=false" >> "$GITHUB_ENV" ;;
-          esac
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+            CHANNEL=final
+          else
+            BASE="$(grep -E '^\s*MARKETING_VERSION:' project.yml | awk '{print $2}')"
+            VERSION="${BASE}-dev.${GITHUB_RUN_NUMBER}"
+            TAG="v${VERSION}"
+            CHANNEL=dev
+          fi
+          PRERELEASE=false
+          case "$VERSION" in *-*) PRERELEASE=true ;; esac
+          {
+            echo "TAG=$TAG"
+            echo "VERSION=$VERSION"
+            echo "CHANNEL=$CHANNEL"
+            echo "PRERELEASE=$PRERELEASE"
+          } >> "$GITHUB_ENV"
+          echo "Building $TAG on the $CHANNEL channel"
 
       - name: Detect optional secrets
         env:
-          CERT: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
+          CERT: ${{ secrets.SIGNING_CERT_P12_BASE64 }}
           NOTARY: ${{ secrets.NOTARY_PASSWORD }}
           SPARKLE: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          TAP: ${{ secrets.TAP_TOKEN }}
+          TAP_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
         run: |
-          echo "HAS_SIGNING=$([ -n "$CERT" ] && [ -n "$NOTARY" ] && echo true || echo false)" >> "$GITHUB_ENV"
-          echo "HAS_SPARKLE_KEY=$([ -n "$SPARKLE" ] && echo true || echo false)" >> "$GITHUB_ENV"
+          {
+            echo "HAS_SIGNING=$([ -n "$CERT" ] && echo true || echo false)"
+            echo "HAS_NOTARY=$([ -n "$CERT" ] && [ -n "$NOTARY" ] && echo true || echo false)"
+            echo "HAS_SPARKLE_KEY=$([ -n "$SPARKLE" ] && echo true || echo false)"
+            echo "HAS_TAP_ACCESS=$([ -n "$TAP" ] || [ -n "$TAP_KEY" ] && echo true || echo false)"
+          } >> "$GITHUB_ENV"
 
       - name: Install XcodeGen
         run: command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
@@ -63,16 +87,16 @@ jobs:
             ONLY_ACTIVE_ARCH=NO \
             MARKETING_VERSION="${VERSION%%-*}" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
-            CODE_SIGN_IDENTITY=- 
+            CODE_SIGN_IDENTITY=-
           mkdir -p build/export
           cp -R "build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" build/export/
           lipo -archs "build/export/$APP_NAME.app/Contents/MacOS/$APP_NAME"
 
-      - name: Import Developer ID certificate
+      - name: Import signing certificate
         if: env.HAS_SIGNING == 'true'
         env:
-          CERT_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
-          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          CERT_BASE64: ${{ secrets.SIGNING_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
         run: |
           KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
           KEYCHAIN_PASSWORD="$(uuidgen)"
@@ -85,33 +109,68 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
           rm -f "$RUNNER_TEMP/cert.p12"
 
-      - name: Sign and notarize
+      - name: Sign
         if: env.HAS_SIGNING == 'true'
         env:
-          DEVELOPER_ID_IDENTITY: ${{ secrets.DEVELOPER_ID_IDENTITY }}
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+        run: scripts/sign.sh "build/export/$APP_NAME.app" "App/$APP_NAME.entitlements"
+
+      - name: Notarize
+        if: env.HAS_NOTARY == 'true'
+        env:
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
-        run: scripts/sign-and-notarize.sh "build/export/$APP_NAME.app" "App/$APP_NAME.entitlements"
-
-      - name: Signing skipped
-        if: env.HAS_SIGNING != 'true'
         run: |
-          echo "::notice::Signing secrets are not configured. The build is ad-hoc signed and not notarized."
-          echo "UNSIGNED_NOTE=This build is ad-hoc signed and not notarized. macOS Gatekeeper will block it until you allow it in System Settings, Privacy and Security." >> "$GITHUB_ENV"
+          scripts/notarize.sh "build/export/$APP_NAME.app"
+          echo "NOTARIZED=true" >> "$GITHUB_ENV"
+
+      - name: Signing or notarization skipped
+        if: env.HAS_NOTARY != 'true'
+        run: |
+          if [ "$HAS_SIGNING" = "true" ]; then
+            echo "::notice::Signed with the configured certificate but not notarized (NOTARY_* secrets missing)."
+            echo "UNSIGNED_NOTE=This build is signed but not notarized. macOS Gatekeeper blocks it until you allow it in System Settings, Privacy and Security, or install with brew install --no-quarantine." >> "$GITHUB_ENV"
+          else
+            echo "::notice::Signing secrets are not configured. The build is ad-hoc signed and not notarized."
+            echo "UNSIGNED_NOTE=This build is ad-hoc signed and not notarized. macOS Gatekeeper blocks it until you allow it in System Settings, Privacy and Security, or install with brew install --no-quarantine. Permission grants do not survive upgrades of ad-hoc builds." >> "$GITHUB_ENV"
+          fi
 
       - name: Zip
         run: |
           ZIP="build/$APP_NAME-$VERSION.zip"
           ditto -c -k --sequesterRsrc --keepParent "build/export/$APP_NAME.app" "$ZIP"
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+          echo "SHA256=$(shasum -a 256 "$ZIP" | awk '{print $1}')" >> "$GITHUB_ENV"
           shasum -a 256 "$ZIP"
+
+      - name: Tag the dev build
+        if: env.CHANNEL == 'dev'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Dev build $VERSION from develop at ${GITHUB_SHA:0:7}"
+          git push origin "$TAG"
 
       - name: Release notes
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! python3 scripts/changelog_release.py notes --version "$VERSION" > build/notes.md 2>/dev/null || [ ! -s build/notes.md ]; then
+          if [ "$CHANNEL" = "dev" ]; then
+            {
+              echo "Development build from \`develop\` at ${GITHUB_SHA:0:7}. Every merge to develop produces one of these."
+              echo
+              echo "Install or upgrade with Homebrew: \`brew install ryan-stoffel/taps/hush\` then \`brew upgrade hush\`."
+              echo
+              echo "Changes since the previous dev build:"
+              PREVIOUS="$(git tag --list 'v*-dev.*' --sort=-v:refname | grep -v "^$TAG$" | head -n 1 || true)"
+              if [ -n "$PREVIOUS" ]; then
+                git log --pretty='- %s' "$PREVIOUS..HEAD" -- . ':!*.md' | head -n 40
+              else
+                git log --pretty='- %s' -n 20
+              fi
+            } > build/notes.md
+          elif ! python3 scripts/changelog_release.py notes --version "$VERSION" > build/notes.md 2>/dev/null || [ ! -s build/notes.md ]; then
             gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" --jq '.body' > build/notes.md
           fi
           if [ -n "${UNSIGNED_NOTE:-}" ]; then
@@ -126,8 +185,43 @@ jobs:
           if [ "$PRERELEASE" = "true" ]; then FLAGS="--prerelease"; fi
           gh release create "$TAG" "$ZIP" --title "$APP_NAME $VERSION" --notes-file build/notes.md --verify-tag $FLAGS
 
+      # Two ways in: a deploy key on the tap (TAP_DEPLOY_KEY, preferred, no personal token needed)
+      # or a fine-grained personal access token (TAP_TOKEN).
+      - name: Update the Homebrew cask
+        if: env.HAS_TAP_ACCESS == 'true'
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "$TAP_DEPLOY_KEY" ]; then
+            KEY="$RUNNER_TEMP/tap_deploy_key"
+            printf '%s\n' "$TAP_DEPLOY_KEY" > "$KEY"
+            chmod 600 "$KEY"
+            export GIT_SSH_COMMAND="ssh -i $KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+            git clone --quiet --depth 1 "git@github.com:${TAP_REPO}.git" tap
+          else
+            git clone --quiet --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPO}.git" tap
+          fi
+          NOTARIZED_FLAG=""
+          if [ "${NOTARIZED:-false}" = "true" ]; then NOTARIZED_FLAG="--notarized"; fi
+          python3 scripts/update_cask.py --version "$VERSION" --sha256 "$SHA256" --repo "$GITHUB_REPOSITORY" --output tap/Casks/hush.rb $NOTARIZED_FLAG
+          cd tap
+          git add Casks/hush.rb
+          if git diff --cached --quiet; then
+            echo "Cask already at $VERSION."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -m "hush $VERSION"
+          git push --quiet origin HEAD
+
+      - name: Cask update skipped
+        if: env.HAS_TAP_ACCESS != 'true'
+        run: echo "::notice::Neither TAP_DEPLOY_KEY nor TAP_TOKEN is configured. The Homebrew cask in $TAP_REPO was not updated."
+
       - name: Update Sparkle appcast on gh-pages
-        if: env.HAS_SPARKLE_KEY == 'true'
+        if: env.HAS_SPARKLE_KEY == 'true' && env.CHANNEL == 'final'
         env:
           GH_TOKEN: ${{ github.token }}
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
@@ -155,12 +249,8 @@ jobs:
             commit --quiet -m "chore(release): appcast for $TAG"
           git -C pages push --quiet origin gh-pages
 
-      - name: Appcast skipped
-        if: env.HAS_SPARKLE_KEY != 'true'
-        run: echo "::notice::SPARKLE_ED_PRIVATE_KEY is not configured. The appcast was not updated."
-
       - name: Open CHANGELOG pull request against develop
-        if: env.PRERELEASE == 'false'
+        if: env.CHANNEL == 'final' && env.PRERELEASE == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

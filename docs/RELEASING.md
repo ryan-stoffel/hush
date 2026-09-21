@@ -4,36 +4,90 @@ This document is for maintainers. It describes how a release is cut, what `.gith
 
 ## Status
 
-As of 2026-09-17 no signing secrets are configured and no signed release has been produced. The signing path of the workflow (certificate import, `scripts/sign-and-notarize.sh`, notarization, stapling) is untested. The Sparkle appcast step is also untested, and Sparkle itself is not yet a dependency (it lands in the v1.0 milestone). Only the project skeleton exists today: the menu bar agent app shell, demo mode argument parsing, the UI test harness, and CI. Expect to fix things the first time each path runs for real, and update this document when you do.
+As of 2026-09-20 no signing secrets are configured and no signed release has been produced. Dev builds from `develop` are published without them. The signing path of the workflow (certificate import, `scripts/sign-and-notarize.sh`, notarization, stapling) is untested. The Sparkle appcast step is also untested, and Sparkle itself is not yet a dependency (it lands in the v1.0 milestone). Only the project skeleton exists today: the menu bar agent app shell, demo mode argument parsing, the UI test harness, and CI. Expect to fix things the first time each path runs for real, and update this document when you do.
 
 ## Overview of the release flow
 
-1. Work lands on `develop` through squash-merged pull requests.
-2. A maintainer opens a pull request from `develop` into `main`. The branching model in force is:
-   - `main`: releases only. Protected. Changes arrive only by PR from `develop`, with passing CI and one approving review. Merge commit (no squash).
-   - `develop`: integration branch. Protected. Requires a PR, passing CI, and a linked issue. Squash merge only.
+Hush has two release channels, both produced by `release.yml` without anyone running commands by hand:
 
-   The release pull request is checked like any other. Only the `branch-name` check has a special case for `develop` into `main`. `linked-issue` and `pr-format` still run, so the pull request needs a release issue, a Conventional Commits title, and a `## Before and After` section. See [The release pull request](#the-release-pull-request).
-3. After the merge, the maintainer tags the merge commit on `main` as `vX.Y.Z` and pushes the tag.
-4. The tag push starts `release.yml` (trigger: `push` on tags matching `v*`). The single job, `release`, runs on a `macos-26` runner with a 90 minute timeout and these token permissions: `contents: write`, `pull-requests: write`, `issues: write`.
+- **dev**: every push to `develop` (that is, every squash-merged pull request) builds the app and publishes a GitHub pre-release tagged `v<MARKETING_VERSION>-dev.<run number>`, for example `v0.2.0-dev.140`. `MARKETING_VERSION` comes from `project.yml`; the run number makes each build newer than the last.
+- **final**: a maintainer merges `develop` into `main` and pushes a tag `vX.Y.Z` on the merge commit. That tag push runs the same workflow on the final channel.
+
+Both channels update the Homebrew cask `hush` in `ryan-stoffel/homebrew-taps` when the `TAP_DEPLOY_KEY` (or `TAP_TOKEN`) secret is configured, so `brew upgrade hush` moves an installed copy to the newest build of either channel. See [Dev channel and Homebrew](#dev-channel-and-homebrew).
+
+The workflow triggers on `push` to `develop`, `push` of tags matching `v*`, and `workflow_dispatch`. The single job, `release`, runs on a `macos-26` runner with a 90 minute timeout and these token permissions: `contents: write`, `pull-requests: write`, `issues: write`. Runs for the same ref queue behind each other instead of cancelling.
 
 The job does the following, in order:
 
 1. Checks out the repository with full history.
-2. Reads the version from the tag. `v0.1.0` gives `VERSION=0.1.0`. If the version contains a hyphen, `PRERELEASE=true`.
-3. Detects optional secrets. `HAS_SIGNING` is true when both `DEVELOPER_ID_CERT_P12_BASE64` and `NOTARY_PASSWORD` are non-empty. `HAS_SPARKLE_KEY` is true when `SPARKLE_ED_PRIVATE_KEY` is non-empty.
+2. Works out the version. On a tag, `v0.1.0` gives `VERSION=0.1.0` and `CHANNEL=final`. On `develop`, it reads `MARKETING_VERSION` from `project.yml` and produces `VERSION=<that>-dev.<run number>`, `TAG=v<VERSION>`, `CHANNEL=dev`. A version containing a hyphen sets `PRERELEASE=true`.
+3. Detects optional secrets. `HAS_SIGNING` is true when `SIGNING_CERT_P12_BASE64` is non-empty. `HAS_NOTARY` is true when both that and `NOTARY_PASSWORD` are non-empty. `HAS_SPARKLE_KEY` follows `SPARKLE_ED_PRIVATE_KEY`; `HAS_TAP_ACCESS` is true when `TAP_DEPLOY_KEY` or `TAP_TOKEN` exists.
 4. Installs XcodeGen if it is missing, runs `xcodegen generate`, and archives a universal Release build (`ARCHS="arm64 x86_64"`, `ONLY_ACTIVE_ARCH=NO`) with ad-hoc signing (`CODE_SIGN_IDENTITY=-`). The app is copied from the archive to `build/export/Hush.app` and `lipo -archs` prints the slices to the log.
-5. If `HAS_SIGNING` is true: imports the Developer ID certificate into a temporary keychain, then runs `scripts/sign-and-notarize.sh build/export/Hush.app App/Hush.entitlements`, which re-signs, notarizes, staples, and runs a Gatekeeper assessment.
-6. If `HAS_SIGNING` is false: see [What the workflow does when secrets are missing](#what-the-workflow-does-when-secrets-are-missing).
-7. Zips the app with `ditto -c -k --sequesterRsrc --keepParent` to `build/Hush-<version>.zip` and prints its SHA-256.
-8. Builds the release notes (see [CHANGELOG handling](#changelog-handling)).
-9. Creates the GitHub release with `gh release create`, titled `Hush <version>`, with the zip attached. `--verify-tag` is passed, and `--prerelease` is added for pre-release tags.
-10. If `HAS_SPARKLE_KEY` is true: updates `appcast.xml` on the `gh-pages` branch (see [Sparkle](#sparkle)).
-11. If the tag is a final release: opens the CHANGELOG issue and pull request against `develop`.
+5. If `HAS_SIGNING` is true: imports the certificate into a temporary keychain and runs `scripts/sign.sh build/export/Hush.app App/Hush.entitlements`, which re-signs nested code and then the app with `SIGNING_IDENTITY`. Any identity works here; see [Which certificate to use](#which-certificate-to-use).
+6. If `HAS_NOTARY` is true: runs `scripts/notarize.sh build/export/Hush.app`, which submits to `notarytool`, staples the ticket, and runs a Gatekeeper assessment. This only succeeds with a Developer ID identity.
+7. Otherwise: see [What the workflow does when secrets are missing](#what-the-workflow-does-when-secrets-are-missing).
+8. Zips the app with `ditto -c -k --sequesterRsrc --keepParent` to `build/Hush-<version>.zip` and records its SHA-256.
+9. On the dev channel: creates the tag `v<version>` on the pushed commit and pushes it. Tags pushed with `GITHUB_TOKEN` do not start workflows, so this does not trigger a second run.
+10. Builds the release notes. Dev builds list the commits since the previous dev tag; final releases use the CHANGELOG section or GitHub generated notes (see [CHANGELOG handling](#changelog-handling)).
+11. Creates the GitHub release with `gh release create`, titled `Hush <version>`, with the zip attached, `--prerelease` for any version with a hyphen.
+12. If `HAS_TAP_ACCESS` is true: writes `Casks/hush.rb` in `ryan-stoffel/homebrew-taps` with the new version, SHA-256, and download URL (`scripts/update_cask.py`) and pushes it. Otherwise a notice says the cask was not updated.
+13. On the final channel with `HAS_SPARKLE_KEY`: updates `appcast.xml` on the `gh-pages` branch (see [Sparkle](#sparkle)).
+14. On the final channel for non-pre-release versions: opens the CHANGELOG issue and pull request against `develop`.
 
-Pre-release tags are tags whose version contains a hyphen, such as `v0.1.0-beta.1`. They are published as GitHub prereleases and skip the CHANGELOG pull request. Everything else in the job runs the same way.
+The workflow does not check that a final tag points at a commit on `main`. That is the maintainer's responsibility. Tag only the merge commit of the `develop` to `main` pull request.
 
-The workflow does not check that the tag points at a commit on `main`. That is the maintainer's responsibility. Tag only the merge commit of the `develop` to `main` pull request.
+## Dev channel and Homebrew
+
+Users install once and then upgrade:
+
+```sh
+brew tap ryan-stoffel/taps
+brew trust ryan-stoffel/taps   # Homebrew 7 and later
+brew install --cask --no-quarantine ryan-stoffel/taps/hush
+brew upgrade --cask hush
+```
+
+The cask token `hush` also exists in the main Homebrew cask tap for an unrelated Safari extension, so the first install must use the fully qualified name. After that `brew upgrade hush` refers to the installed cask.
+
+Until builds are notarized, Gatekeeper blocks the downloaded app. Either install with `brew install --cask --no-quarantine ryan-stoffel/taps/hush`, set `HOMEBREW_CASK_OPTS=--no-quarantine` in the shell profile, or allow the app once in System Settings, Privacy and Security. The cask's caveats say the same.
+
+The cask is generated by `scripts/update_cask.py` from a template: `app "Hush.app"`, `uninstall quit:` on the bundle id, `zap trash:` for the Application Support folder and the preferences file, `depends_on macos: ">= :sonoma"`, and caveats that differ for notarized and unnotarized builds.
+
+`brew upgrade` installs whatever version the cask currently names, so a final release after a run of dev builds is picked up like any other update, and the next dev build after it too. Users who want only final releases can pin with `brew pin hush` between releases.
+
+### Access to the tap
+
+`GITHUB_TOKEN` cannot write to another repository, so the cask update needs its own credential. The preferred one is a deploy key, which belongs to the tap repository rather than to a person and needs no browser step:
+
+```sh
+ssh-keygen -t ed25519 -N "" -C "hush release workflow" -f tap_deploy_key
+gh repo deploy-key add tap_deploy_key.pub --repo ryan-stoffel/homebrew-taps --title "hush release workflow" --allow-write
+gh secret set TAP_DEPLOY_KEY --repo ryan-stoffel/hush < tap_deploy_key
+rm tap_deploy_key tap_deploy_key.pub
+```
+
+The alternative is a fine-grained personal access token, stored as `TAP_TOKEN`. Create it at <https://github.com/settings/personal-access-tokens/new> with:
+
+- Repository access: only `ryan-stoffel/homebrew-taps`.
+- Repository permissions: Contents, read and write. Nothing else.
+- An expiry you will remember to renew; the workflow logs a clear error when the push is refused.
+
+Store it as an Actions secret on this repository:
+
+```sh
+gh secret set TAP_DEPLOY_KEY --repo ryan-stoffel/hush < tap_deploy_key
+```
+
+The workflow uses `TAP_DEPLOY_KEY` when it exists and falls back to `TAP_TOKEN`. Without either, every other step still runs and the release is still published; only the cask stays at its previous version.
+
+### Which certificate to use
+
+macOS ties Microphone, Accessibility, and Input Monitoring grants to the app's code signature. An ad-hoc signature changes with every build, so every upgrade of an ad-hoc build asks for all three permissions again. Any persistent certificate fixes that, because the grant is then bound to the certificate rather than to the build:
+
+- A **Developer ID Application** certificate (Apple Developer Program, paid) is the only kind Gatekeeper accepts, and the only kind that can be notarized. Use it for public releases.
+- An **Apple Development** certificate (free Apple Developer account, created by Xcode) or a **self-signed code signing certificate** (Keychain Access, Certificate Assistant, Create a Certificate, type Code Signing) signs the app just as well for permission stability. Gatekeeper still blocks the download, so users need `--no-quarantine`. Notarization is not possible; leave the `NOTARY_*` secrets unset.
+
+Either way, export the certificate with its private key as a `.p12` from Keychain Access and store it as `SIGNING_CERT_P12_BASE64`, its password as `SIGNING_CERT_PASSWORD`, and the identity string from `security find-identity -v -p codesigning` as `SIGNING_IDENTITY`.
 
 ## Versioning
 
@@ -55,7 +109,7 @@ Consequence: do not rename `release.yml` or delete and recreate the workflow aft
 You need an Apple Developer Program membership (paid). A free Apple ID cannot create Developer ID certificates or notarize.
 
 1. Create the certificate. In Xcode: Settings, Accounts, select the team, Manage Certificates, add a "Developer ID Application" certificate. Alternatively create a certificate signing request in Keychain Access and upload it at <https://developer.apple.com/account/resources/certificates>. Only the Account Holder role can create Developer ID certificates.
-2. Export it as a `.p12`. In Keychain Access, open the login keychain, My Certificates, expand "Developer ID Application: Your Name (TEAMID)" and confirm the private key is nested under it. Select the certificate, File, Export Items, format Personal Information Exchange (.p12). Set a strong export password. That password becomes `DEVELOPER_ID_CERT_PASSWORD`.
+2. Export it as a `.p12`. In Keychain Access, open the login keychain, My Certificates, expand "Developer ID Application: Your Name (TEAMID)" and confirm the private key is nested under it. Select the certificate, File, Export Items, format Personal Information Exchange (.p12). Set a strong export password. That password becomes `SIGNING_CERT_PASSWORD`.
 3. Base64 encode it to the clipboard:
 
    ```sh
@@ -68,11 +122,11 @@ You need an Apple Developer Program membership (paid). A free Apple ID cannot cr
    security find-identity -v -p codesigning
    ```
 
-   The output has a line like `1) 0123456789ABCDEF0123456789ABCDEF01234567 "Developer ID Application: Your Name (ABCDE12345)"`. The quoted string is `DEVELOPER_ID_IDENTITY`. The ten character code in parentheses is the team id. The team id is also shown at <https://developer.apple.com/account> under Membership details.
+   The output has a line like `1) 0123456789ABCDEF0123456789ABCDEF01234567 "Developer ID Application: Your Name (ABCDE12345)"`. The quoted string is `SIGNING_IDENTITY`. The ten character code in parentheses is the team id. The team id is also shown at <https://developer.apple.com/account> under Membership details.
 5. Create an app-specific password for `notarytool`. Sign in at <https://appleid.apple.com>, open Sign-In and Security, App-Specific Passwords, and generate one named something like `hush-notarytool`. It has the form `abcd-efgh-ijkl-mnop`. This is `NOTARY_PASSWORD`. It is not your Apple ID password.
 6. Store the six signing secrets as described in the next section, then delete `cert.p12` from disk and clear the clipboard.
 
-Developer ID Application certificates are valid for five years. When the certificate is renewed, export the new one and replace `DEVELOPER_ID_CERT_P12_BASE64`, `DEVELOPER_ID_CERT_PASSWORD`, and, if the name changed, `DEVELOPER_ID_IDENTITY`.
+Developer ID Application certificates are valid for five years. When the certificate is renewed, export the new one and replace `SIGNING_CERT_P12_BASE64`, `SIGNING_CERT_PASSWORD`, and, if the name changed, `SIGNING_IDENTITY`.
 
 ## GitHub secrets
 
@@ -80,9 +134,11 @@ All secrets are repository Actions secrets on `ryan-stoffel/hush`. All are optio
 
 | Secret | What it is | How to produce it |
 | --- | --- | --- |
-| `DEVELOPER_ID_CERT_P12_BASE64` | The Developer ID Application certificate and its private key, as a base64 encoded `.p12`. | `base64 -i cert.p12` |
-| `DEVELOPER_ID_CERT_PASSWORD` | The export password of that `.p12`. | Chosen during the Keychain Access export. |
-| `DEVELOPER_ID_IDENTITY` | The signing identity passed to `codesign --sign`, for example `Developer ID Application: Your Name (ABCDE12345)`. | `security find-identity -v -p codesigning` |
+| `SIGNING_CERT_P12_BASE64` | A code signing certificate and its private key, as a base64 encoded `.p12`. Developer ID for notarized releases; Apple Development or self-signed for permission-stable unnotarized builds. | `base64 -i cert.p12` |
+| `SIGNING_CERT_PASSWORD` | The export password of that `.p12`. | Chosen during the Keychain Access export. |
+| `SIGNING_IDENTITY` | The signing identity passed to `codesign --sign`, for example `Developer ID Application: Your Name (ABCDE12345)` or `Apple Development: Your Name (ABCDE12345)`. | `security find-identity -v -p codesigning` |
+| `TAP_DEPLOY_KEY` | Private half of a deploy key with write access on `ryan-stoffel/homebrew-taps`. Preferred. | See [Access to the tap](#access-to-the-tap). |
+| `TAP_TOKEN` | Fine-grained personal access token with Contents read and write on `ryan-stoffel/homebrew-taps`. Alternative to the deploy key. | See [Access to the tap](#access-to-the-tap). |
 | `NOTARY_APPLE_ID` | The Apple ID email address used for notarization. | The Apple ID that belongs to the developer team. |
 | `NOTARY_TEAM_ID` | The ten character Apple Developer team id. | The code in parentheses in the identity string, or Membership details in the developer account. |
 | `NOTARY_PASSWORD` | An app-specific password for `notarytool`. | <https://appleid.apple.com>, App-Specific Passwords. |
@@ -91,18 +147,19 @@ All secrets are repository Actions secrets on `ryan-stoffel/hush`. All are optio
 Set them with the GitHub CLI. Commands that read from a pipe or a file keep the value out of shell history. Commands without input prompt for the value.
 
 ```sh
-base64 -i cert.p12 | gh secret set DEVELOPER_ID_CERT_P12_BASE64 --repo ryan-stoffel/hush
-gh secret set DEVELOPER_ID_CERT_PASSWORD --repo ryan-stoffel/hush
-gh secret set DEVELOPER_ID_IDENTITY --repo ryan-stoffel/hush --body "Developer ID Application: Your Name (ABCDE12345)"
+base64 -i cert.p12 | gh secret set SIGNING_CERT_P12_BASE64 --repo ryan-stoffel/hush
+gh secret set SIGNING_CERT_PASSWORD --repo ryan-stoffel/hush
+gh secret set SIGNING_IDENTITY --repo ryan-stoffel/hush --body "Developer ID Application: Your Name (ABCDE12345)"
 gh secret set NOTARY_APPLE_ID --repo ryan-stoffel/hush
 gh secret set NOTARY_TEAM_ID --repo ryan-stoffel/hush --body "ABCDE12345"
 gh secret set NOTARY_PASSWORD --repo ryan-stoffel/hush
 gh secret set SPARKLE_ED_PRIVATE_KEY --repo ryan-stoffel/hush < sparkle_private_key.txt
+gh secret set TAP_DEPLOY_KEY --repo ryan-stoffel/hush < tap_deploy_key
 ```
 
 Check the result with `gh secret list --repo ryan-stoffel/hush`.
 
-Set all six signing secrets together. The workflow decides whether to sign by looking only at `DEVELOPER_ID_CERT_P12_BASE64` and `NOTARY_PASSWORD`. If those two exist and any of `DEVELOPER_ID_CERT_PASSWORD`, `DEVELOPER_ID_IDENTITY`, `NOTARY_APPLE_ID`, or `NOTARY_TEAM_ID` is missing, the certificate import or `scripts/sign-and-notarize.sh` fails and the job stops before a release is created.
+Set the three `SIGNING_*` secrets together, and the three `NOTARY_*` secrets together. The workflow signs when `SIGNING_CERT_P12_BASE64` exists and notarizes when `NOTARY_PASSWORD` exists as well. If a group is incomplete, the certificate import, `scripts/sign.sh`, or `scripts/notarize.sh` fails and the job stops before a release is created.
 
 How the workflow uses the certificate: it decodes the `.p12` into `$RUNNER_TEMP`, creates a temporary keychain with a random password, imports the certificate, runs `security set-key-partition-list` so `codesign` can use the key without a prompt, puts the keychain on the user search list, and deletes the decoded `.p12`. The keychain lives on the ephemeral runner and is discarded with it.
 
@@ -124,18 +181,21 @@ No hardened runtime exceptions (`allow-jit`, `disable-library-validation`, and s
 
 ## What the workflow does when secrets are missing
 
-When `DEVELOPER_ID_CERT_P12_BASE64` or `NOTARY_PASSWORD` is empty:
+When `SIGNING_CERT_P12_BASE64` is empty:
 
-- The certificate import and the "Sign and notarize" step are skipped. The app keeps the ad-hoc signature from the archive step. It is not notarized and has no stapled ticket.
-- The "Signing skipped" step writes a notice annotation to the log: `Signing secrets are not configured. The build is ad-hoc signed and not notarized.`
-- This note is appended to the release notes: "This build is ad-hoc signed and not notarized. macOS Gatekeeper will block it until you allow it in System Settings, Privacy and Security."
-- The zip and the GitHub release are still created. The job succeeds.
+- The certificate import, "Sign", and "Notarize" steps are skipped. The app keeps the ad-hoc signature from the archive step.
+- A notice annotation says `Signing secrets are not configured. The build is ad-hoc signed and not notarized.`
+- This note is appended to the release notes: "This build is ad-hoc signed and not notarized. macOS Gatekeeper blocks it until you allow it in System Settings, Privacy and Security, or install with brew install --no-quarantine. Permission grants do not survive upgrades of ad-hoc builds."
 
-When `SPARKLE_ED_PRIVATE_KEY` is empty, the appcast step is skipped and the log gets the notice `SPARKLE_ED_PRIVATE_KEY is not configured. The appcast was not updated.` Nothing is written to `gh-pages`.
+When the certificate exists but `NOTARY_PASSWORD` is empty: the app is signed with the certificate, "Notarize" is skipped, and the notes say the build is signed but not notarized.
 
-The two checks are independent. Do not configure the Sparkle key before the signing secrets: that would advertise an ad-hoc signed build to installed copies through the appcast.
+When neither `TAP_DEPLOY_KEY` nor `TAP_TOKEN` exists: the cask step is skipped with the notice `Neither TAP_DEPLOY_KEY nor TAP_TOKEN is configured. The Homebrew cask in ryan-stoffel/homebrew-taps was not updated.`
 
-Forks inherit none of the secrets, so a tag pushed in a fork produces an ad-hoc signed release in that fork and nothing else.
+When `SPARKLE_ED_PRIVATE_KEY` is empty: the appcast step is skipped with the notice `SPARKLE_ED_PRIVATE_KEY is not configured. The appcast was not updated.` Nothing is written to `gh-pages`.
+
+The checks are independent. Do not configure the Sparkle key before a Developer ID certificate: that would advertise an unnotarized build to installed copies through the appcast.
+
+Forks inherit none of the secrets, so a push in a fork produces an ad-hoc signed pre-release in that fork and nothing else.
 
 ## Signing and notarizing by hand on a Mac
 
@@ -176,11 +236,12 @@ lipo -archs build/export/Hush.app/Contents/MacOS/Hush
 The short way is to run the same script CI runs:
 
 ```sh
-export DEVELOPER_ID_IDENTITY="Developer ID Application: Your Name (ABCDE12345)"
+export SIGNING_IDENTITY="Developer ID Application: Your Name (ABCDE12345)"
 export NOTARY_APPLE_ID="you@example.com"
 export NOTARY_TEAM_ID="ABCDE12345"
 read -rs NOTARY_PASSWORD && export NOTARY_PASSWORD
-scripts/sign-and-notarize.sh build/export/Hush.app App/Hush.entitlements
+scripts/sign.sh build/export/Hush.app App/Hush.entitlements
+scripts/notarize.sh build/export/Hush.app
 ```
 
 The same steps, one command at a time, with the four variables above still exported:
@@ -190,14 +251,14 @@ APP=build/export/Hush.app
 
 # 1. Nested code, inside out. Skip this block while the app has no Contents/Frameworks directory.
 find "$APP/Contents/Frameworks" -type d \( -name "*.xpc" -o -name "*.app" \) -print0 |
-  xargs -0 -n 1 codesign --force --timestamp --options runtime --sign "$DEVELOPER_ID_IDENTITY"
+  xargs -0 -n 1 codesign --force --timestamp --options runtime --sign "$SIGNING_IDENTITY"
 find "$APP/Contents/Frameworks" -type f -perm +111 -name "Autoupdate" -print0 |
-  xargs -0 -n 1 codesign --force --timestamp --options runtime --sign "$DEVELOPER_ID_IDENTITY"
+  xargs -0 -n 1 codesign --force --timestamp --options runtime --sign "$SIGNING_IDENTITY"
 find "$APP/Contents/Frameworks" -maxdepth 1 \( -name "*.framework" -o -name "*.dylib" \) -print0 |
-  xargs -0 -n 1 codesign --force --timestamp --options runtime --sign "$DEVELOPER_ID_IDENTITY"
+  xargs -0 -n 1 codesign --force --timestamp --options runtime --sign "$SIGNING_IDENTITY"
 
 # 2. The app itself, with entitlements.
-codesign --force --timestamp --options runtime --sign "$DEVELOPER_ID_IDENTITY" \
+codesign --force --timestamp --options runtime --sign "$SIGNING_IDENTITY" \
   --entitlements App/Hush.entitlements "$APP"
 
 # 3. Verify the signature.
