@@ -1,6 +1,6 @@
-# Quoth
+# Hush
 
-Quoth is an open-source macOS menu bar app for voice dictation. Hold a key, speak, release, and cleaned-up text is inserted at the cursor in any app. Transcription runs on-device by default. There are no accounts, no telemetry, and nothing leaves your Mac unless you choose a cloud backend.
+Hush is an open-source macOS menu bar app for voice dictation. Hold a key, speak, release, and cleaned-up text is inserted at the cursor in any app. Transcription runs on-device by default. There are no accounts, no telemetry, and nothing leaves your Mac unless you choose a cloud backend.
 
 - Platform: macOS 14 or later
 - License: MIT
@@ -26,7 +26,7 @@ Dictation does not work yet. v0.1 is in progress. Nothing below is described as 
 | v0.3 | Snippets, command mode (speak an instruction to rewrite the selected text), cloud transcription backends (OpenAI, Deepgram), optional LLM cleanup | Planned |
 | v1.0 | Onboarding, auto-update with Sparkle, Developer ID signed and notarized release | Planned |
 
-Progress is tracked in [milestones](https://github.com/ryan-stoffel/quoth/milestones) and [issues](https://github.com/ryan-stoffel/quoth/issues).
+Progress is tracked in [milestones](https://github.com/ryan-stoffel/hush/milestones) and [issues](https://github.com/ryan-stoffel/hush/issues).
 
 ## Screenshots
 
@@ -36,11 +36,11 @@ No window exists yet, so no image has been published. Each link below resolves o
 
 | Scene | Milestone | Image |
 | --- | --- | --- |
-| Menu bar popover | v0.1 | ![Menu bar popover](https://raw.githubusercontent.com/ryan-stoffel/quoth/screenshots/latest/popover.png) |
-| Recording overlay, listening | v0.1 | ![Recording overlay while listening](https://raw.githubusercontent.com/ryan-stoffel/quoth/screenshots/latest/overlay-listening.png) |
-| Settings, General tab | v0.2 | ![Settings window, General tab](https://raw.githubusercontent.com/ryan-stoffel/quoth/screenshots/latest/settings-general.png) |
-| History | v0.2 | ![History window](https://raw.githubusercontent.com/ryan-stoffel/quoth/screenshots/latest/history.png) |
-| Onboarding, welcome | v1.0 | ![Onboarding welcome screen](https://raw.githubusercontent.com/ryan-stoffel/quoth/screenshots/latest/onboarding-welcome.png) |
+| Menu bar popover | v0.1 | ![Menu bar popover](https://raw.githubusercontent.com/ryan-stoffel/hush/screenshots/latest/popover.png) |
+| Recording overlay, listening | v0.1 | ![Recording overlay while listening](https://raw.githubusercontent.com/ryan-stoffel/hush/screenshots/latest/overlay-listening.png) |
+| Settings, General tab | v0.2 | ![Settings window, General tab](https://raw.githubusercontent.com/ryan-stoffel/hush/screenshots/latest/settings-general.png) |
+| History | v0.2 | ![History window](https://raw.githubusercontent.com/ryan-stoffel/hush/screenshots/latest/history.png) |
+| Onboarding, welcome | v1.0 | ![Onboarding welcome screen](https://raw.githubusercontent.com/ryan-stoffel/hush/screenshots/latest/onboarding-welcome.png) |
 
 ## How it works
 
@@ -62,19 +62,19 @@ The module layout and the reasoning behind it are in [docs/ARCHITECTURE.md](docs
 
 ## Install
 
-There is no release yet. To run Quoth today, follow [Building from source](#building-from-source). What you get is the skeleton described in [Status](#status).
+There is no release yet. To run Hush today, follow [Building from source](#building-from-source). What you get is the skeleton described in [Status](#status).
 
 Once releases exist, install will be:
 
-1. Download `Quoth-<version>.zip` (for example `Quoth-1.0.0.zip`) from [Releases](https://github.com/ryan-stoffel/quoth/releases).
-2. Unzip it and move `Quoth.app` to `/Applications`.
-3. Open it. Quoth appears in the menu bar, not in the Dock.
+1. Download `Hush-<version>.zip` (for example `Hush-1.0.0.zip`) from [Releases](https://github.com/ryan-stoffel/hush/releases).
+2. Unzip it and move `Hush.app` to `/Applications`.
+3. Open it. Hush appears in the menu bar, not in the Dock.
 
-The signed and notarized release is a v1.0 goal. The release workflow signs with a Developer ID and notarizes only when the signing secrets are configured, and skips that step otherwise. A build without Developer ID signing is blocked by Gatekeeper on first launch. To allow it, open System Settings, Privacy and Security, scroll to the message about Quoth, and choose Open Anyway.
+The signed and notarized release is a v1.0 goal. The release workflow signs with a Developer ID and notarizes only when the signing secrets are configured, and skips that step otherwise. A build without Developer ID signing is blocked by Gatekeeper on first launch. To allow it, open System Settings, Privacy and Security, scroll to the message about Hush, and choose Open Anyway.
 
 ## Permissions
 
-Quoth will ask for three permissions once the features that need them land (v0.1). Each will be requested only when the feature that needs it is used. None of them are requested by the current skeleton, and demo mode never touches any of them.
+Hush will ask for three permissions once the features that need them land (v0.1). Each will be requested only when the feature that needs it is used. None of them are requested by the current skeleton, and demo mode never touches any of them.
 
 | Permission | Why | Without it |
 | --- | --- | --- |
@@ -140,25 +140,25 @@ Requirements:
 Get the source and generate the Xcode project:
 
 ```sh
-git clone https://github.com/ryan-stoffel/quoth.git
-cd quoth
+git clone https://github.com/ryan-stoffel/hush.git
+cd hush
 scripts/bootstrap.sh
 ```
 
-`Quoth.xcodeproj` is generated from `project.yml` and is not committed. Run `xcodegen generate` again after adding, moving, or removing files.
+`Hush.xcodeproj` is generated from `project.yml` and is not committed. Run `xcodegen generate` again after adding, moving, or removing files.
 
 Build and run from Xcode:
 
 ```sh
-open Quoth.xcodeproj
+open Hush.xcodeproj
 ```
 
-Select the `Quoth` scheme and run. Grant Microphone, Accessibility, and Input Monitoring when asked (the popover lists what is missing), then hold Fn and speak. Quit from the popover.
+Select the `Hush` scheme and run. Grant Microphone, Accessibility, and Input Monitoring when asked (the popover lists what is missing), then hold Fn and speak. Quit from the popover.
 
 Or build headless:
 
 ```sh
-xcodebuild -project Quoth.xcodeproj -scheme Quoth -destination 'platform=macOS' build
+xcodebuild -project Hush.xcodeproj -scheme Hush -destination 'platform=macOS' build
 ```
 
 Run the tests:
@@ -178,23 +178,23 @@ scripts/lint.sh          # SwiftFormat and SwiftLint in check mode
 scripts/lint.sh --fix    # format and autocorrect, then check
 ```
 
-The library code is a Swift package (tools version 5.10) with two targets: `QuothCore` (pure logic, Foundation only) and `QuothKit` (AppKit, SwiftUI, AVFoundation, Accessibility). The app target in `App/` is a thin entry point. The package currently has no third-party dependencies. WhisperKit is added by the v0.1 transcription work and Sparkle in v1.0.
+The library code is a Swift package (tools version 5.10) with two targets: `HushCore` (pure logic, Foundation only) and `HushKit` (AppKit, SwiftUI, AVFoundation, Accessibility). The app target in `App/` is a thin entry point. The package currently has no third-party dependencies. WhisperKit is added by the v0.1 transcription work and Sparkle in v1.0.
 
 ## Troubleshooting
 
-These apply once the hotkey and insertion features land in v0.1. They are listed now because they are properties of macOS, not of Quoth.
+These apply once the hotkey and insertion features land in v0.1. They are listed now because they are properties of macOS, not of Hush.
 
 **Holding Fn opens the emoji picker, switches input source, or starts Apple dictation.** macOS assigns an action to the Globe key. Open System Settings, Keyboard, and set "Press Globe key to" to "Do Nothing".
 
 **My external keyboard has no Fn key, or its Fn key does nothing.** Most third-party keyboards handle Fn in firmware and never send it to macOS. Apple keyboards do send it. On other keyboards, choose a different hotkey in Settings (v0.2), or use the built-in keyboard.
 
-**Permissions look granted but the hotkey or insertion does not work.** Reset Quoth's entries and grant them again:
+**Permissions look granted but the hotkey or insertion does not work.** Reset Hush's entries and grant them again:
 
 ```sh
-tccutil reset All io.github.ryan-stoffel.quoth
+tccutil reset All io.github.ryan-stoffel.hush
 ```
 
-Then quit and reopen Quoth.
+Then quit and reopen Hush.
 
 **Permissions disappear every time I rebuild.** Builds from source are ad-hoc signed (`CODE_SIGN_IDENTITY` is `-`). macOS ties a permission grant to the code signature, and an ad-hoc signature changes with every build, so a rebuilt app is treated as a different app and loses its grants. Run the `tccutil` command above and grant the permissions again. Signed releases do not have this problem.
 

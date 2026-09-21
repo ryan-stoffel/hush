@@ -10,7 +10,7 @@ final class ScreenshotTests: ScreenshotTestCase {
     func testStatusItemStates() {
         for state in ["idle", "listening", "transcribing", "error"] {
             launch(scene: nil, extraArguments: ["-demoState", state])
-            capture(app.statusItems["quoth.statusItem"], named: "status-item-\(state)")
+            capture(app.statusItems["hush.statusItem"], named: "status-item-\(state)")
             app.terminate()
         }
     }

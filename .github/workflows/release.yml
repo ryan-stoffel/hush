@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SCHEME: Quoth
-  APP_NAME: Quoth
+  SCHEME: Hush
+  APP_NAME: Hush
 
 jobs:
   release:

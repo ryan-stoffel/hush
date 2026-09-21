@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Quoth are documented in this file.
+All notable changes to Hush are documented in this file.
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -9,6 +9,10 @@ Add entries under Unreleased in the pull request that makes the change. The rele
 Features are listed only once they are merged. Planned work is tracked in the GitHub milestones.
 
 ## [Unreleased]
+
+### Changed
+
+- The app is now called Hush (bundle id `io.github.ryan-stoffel.hush`, repository ryan-stoffel/hush). Downloaded models and history move from Application Support/Quoth to Application Support/Hush on first launch. Settings start from defaults because the preferences domain changed. (#118)
 
 ### Added
 
@@ -35,13 +39,13 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 - Global push-to-talk detection: a listen-only event tap and a state machine that reports a bare Fn hold and cancels on taps, Fn shortcuts, and extra modifiers. (#4)
 - Permissions service for Microphone, Accessibility, and Input Monitoring with request and open-System-Settings paths. The popover lists missing permissions with a Grant button. Adds the `popover-permissions` demo scene. (#3)
 - Status item popover showing the current state, the last dictation with a Copy button, the app version, and Quit. Adds the `popover` demo scene and its screenshot test. (#2)
-- Menu bar status item whose icon and accessibility label follow the dictation state (idle, listening, transcribing, error), backed by `DictationState` in `QuothCore` and an observable `AppState` in `QuothKit`. Demo mode accepts `-demoState` to start in a given state. (#1)
-- SwiftPM package (`Package.swift`, Swift tools version 5.10, macOS 14 minimum) with two library targets and no third-party dependencies: `QuothCore` for pure Foundation-only logic and `QuothKit` for the platform layer. Unit test targets `QuothCoreTests` and `QuothKitTests`.
-- XcodeGen project spec (`project.yml`) that generates `Quoth.xcodeproj` with the `Quoth` app target (bundle id `io.github.ryan-stoffel.quoth`, hardened runtime, ad hoc signing for local builds), the `QuothUITests` UI test target, and a shared `Quoth` scheme. The generated project is not committed.
-- Menu bar agent app shell: `App/main.swift` starts `NSApplication` with the accessory activation policy, `Info.plist` sets `LSUIElement`, and `AppDelegate` in `QuothKit` keeps the app running with no windows open. The app has no status item, windows, or dictation features yet.
+- Menu bar status item whose icon and accessibility label follow the dictation state (idle, listening, transcribing, error), backed by `DictationState` in `HushCore` and an observable `AppState` in `HushKit`. Demo mode accepts `-demoState` to start in a given state. (#1)
+- SwiftPM package (`Package.swift`, Swift tools version 5.10, macOS 14 minimum) with two library targets and no third-party dependencies: `HushCore` for pure Foundation-only logic and `HushKit` for the platform layer. Unit test targets `HushCoreTests` and `HushKitTests`.
+- XcodeGen project spec (`project.yml`) that generates `Hush.xcodeproj` with the `Hush` app target (bundle id `io.github.ryan-stoffel.hush`, hardened runtime, ad hoc signing for local builds), the `HushUITests` UI test target, and a shared `Hush` scheme. The generated project is not committed.
+- Menu bar agent app shell: `App/main.swift` starts `NSApplication` with the accessory activation policy, `Info.plist` sets `LSUIElement`, and `AppDelegate` in `HushKit` keeps the app running with no windows open. The app has no status item, windows, or dictation features yet.
 - Entitlements file with the audio input entitlement, in place for the v0.1 capture work.
-- `AppInfo` in `QuothCore`: app name, bundle identifier, repository URL, and a version string read from the bundle.
-- Demo mode launch argument parsing in `QuothCore` (`DemoMode`): `-demoMode YES` enables it and `-demoScene <name>` selects one scene. `AppDelegate` reads it at launch. No scenes exist yet.
+- `AppInfo` in `HushCore`: app name, bundle identifier, repository URL, and a version string read from the bundle.
+- Demo mode launch argument parsing in `HushCore` (`DemoMode`): `-demoMode YES` enables it and `-demoScene <name>` selects one scene. `AppDelegate` reads it at launch. No scenes exist yet.
 - XCUITest screenshot harness (`UITests/ScreenshotHarness.swift`): launches the app in demo mode with a fixed English locale and attaches a named PNG per captured element. The first test checks that the app launches in demo mode with no windows.
 - Scripts: `bootstrap.sh` (installs XcodeGen, SwiftFormat, and SwiftLint with Homebrew, then generates the project), `lint.sh` (check mode, or `--fix`), `test.sh` (`unit`, `ui`, or both), `capture-screenshots.sh`, `pr_screenshots.py`, `check_pr.py`, `changelog_release.py`, and `sign-and-notarize.sh`.
 - Lint configuration: `.swiftformat` and `.swiftlint.yml`. CI runs `swiftformat --lint` and `swiftlint --strict`.
@@ -57,4 +61,4 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 - Contributor and agent documentation: `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, and `docs/` (`ARCHITECTURE.md`, `RESEARCH.md`, `RELEASING.md`, `MANUAL_TEST.md`).
 - MIT license.
 
-[Unreleased]: https://github.com/ryan-stoffel/quoth/commits/develop
+[Unreleased]: https://github.com/ryan-stoffel/hush/commits/develop

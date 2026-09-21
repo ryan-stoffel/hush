@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes how Quoth is structured, what exists in the repository today, and what is planned for each milestone.
+This document describes how Hush is structured, what exists in the repository today, and what is planned for each milestone.
 
 Status as of 2026-09-17: only the project skeleton is merged. That means the menu bar agent app shell, demo mode argument parsing, the UI test harness, and CI. Everything else in this document is the design that v0.1 through v1.0 will implement. Each section marks its parts as **Exists** or **Planned (milestone)**. When code and this document disagree, fix one of them in the same pull request.
 
@@ -23,7 +23,7 @@ Status as of 2026-09-17: only the project skeleton is merged. That means the men
 
 ## Overview
 
-Quoth is a macOS menu bar app for voice dictation. The user holds a key, speaks, and releases. Quoth records the audio, transcribes it, cleans up the text, and inserts it at the cursor of whatever app is frontmost. Transcription runs on the device by default.
+Hush is a macOS menu bar app for voice dictation. The user holds a key, speaks, and releases. Hush records the audio, transcribes it, cleans up the text, and inserts it at the cursor of whatever app is frontmost. Transcription runs on the device by default.
 
 The app is a single process with no helper tools, no XPC services, and no server component. It is an agent app (`LSUIElement` is true in `App/Info.plist`, and `App/main.swift` sets the activation policy to `.accessory`), so it has no Dock icon and no main menu.
 
@@ -31,14 +31,14 @@ The code is split into two SwiftPM library targets and one thin Xcode app target
 
 | Piece | Path | Role |
 | --- | --- | --- |
-| QuothCore | `Sources/QuothCore/` | Pure Swift logic. Foundation only. |
-| QuothKit | `Sources/QuothKit/` | Platform code: AppKit, SwiftUI, AVFoundation, Accessibility, WhisperKit. |
-| Quoth (app target) | `App/` | `main.swift`, `Info.plist`, `Quoth.entitlements`. No logic. |
-| QuothUITests | `UITests/` | XCUITest screenshot suite. Launches the app in demo mode. |
+| HushCore | `Sources/HushCore/` | Pure Swift logic. Foundation only. |
+| HushKit | `Sources/HushKit/` | Platform code: AppKit, SwiftUI, AVFoundation, Accessibility, WhisperKit. |
+| Hush (app target) | `App/` | `main.swift`, `Info.plist`, `Hush.entitlements`. No logic. |
+| HushUITests | `UITests/` | XCUITest screenshot suite. Launches the app in demo mode. |
 
 Facts that other sections rely on:
 
-- Bundle id: `io.github.ryan-stoffel.quoth`. UI test bundle id: `io.github.ryan-stoffel.quoth.UITests`.
+- Bundle id: `io.github.ryan-stoffel.hush`. UI test bundle id: `io.github.ryan-stoffel.hush.UITests`.
 - Minimum macOS 14.0. The app builds for arm64 and x86_64.
 - Swift tools version 5.10. Xcode 16 or newer to build. CI uses Xcode 26 on `macos-26` runners.
 - License: MIT.
@@ -47,8 +47,8 @@ Facts that other sections rely on:
 
 These are the rules that shape every design choice below. A change that breaks one of them needs an issue and a discussion first.
 
-1. **Menu bar only.** Quoth is an agent app. Its surfaces are an `NSStatusItem`, a popover, a recording overlay, and a small number of utility windows (Settings, History, Onboarding). `applicationShouldTerminateAfterLastWindowClosed` returns `false`, so closing a window never quits the app.
-2. **Never steal focus.** The user is typing into another app when they dictate. If Quoth activates itself, the insertion target loses its cursor and the text goes nowhere. The overlay is a non-activating `NSPanel`. The hotkey path never calls `NSApp.activate`. Only windows the user opens on purpose (Settings, History, Onboarding) may become key.
+1. **Menu bar only.** Hush is an agent app. Its surfaces are an `NSStatusItem`, a popover, a recording overlay, and a small number of utility windows (Settings, History, Onboarding). `applicationShouldTerminateAfterLastWindowClosed` returns `false`, so closing a window never quits the app.
+2. **Never steal focus.** The user is typing into another app when they dictate. If Hush activates itself, the insertion target loses its cursor and the text goes nowhere. The overlay is a non-activating `NSPanel`. The hotkey path never calls `NSApp.activate`. Only windows the user opens on purpose (Settings, History, Onboarding) may become key.
 3. **Local by default.** Nothing leaves the machine unless the user picks a cloud backend. See [Privacy architecture](#privacy-architecture).
 4. **Minimal dependencies.** `Package.swift` has an empty `dependencies` array today. Two dependencies are pre-approved: WhisperKit (added by the v0.1 transcription issue) and Sparkle (added in v1.0, not before). Anything else needs an issue and maintainer sign-off. Every entry must carry a comment that says what it is for and why the SDK cannot do the job.
 5. **Testable without hardware.** A CI runner has no microphone, no Accessibility permission, and no user to press a key. Every hardware or permission boundary sits behind a protocol with a fake. The whole UI can be opened in demo mode with seeded data. Real dictation is verified by hand with `docs/MANUAL_TEST.md` before each release and whenever a pull request touches audio, hotkey, transcription, or insertion code.
@@ -56,27 +56,27 @@ These are the rules that shape every design choice below. A change that breaks o
 ## Module layout
 
 ```
-Package.swift            SwiftPM manifest: QuothCore, QuothKit, and their test targets
-project.yml              XcodeGen spec: app target Quoth and UI test target QuothUITests
-App/                     main.swift, Info.plist, Quoth.entitlements
-Sources/QuothCore/       pure logic, Foundation only
-Sources/QuothKit/        platform code
-Tests/QuothCoreTests/    unit tests for Core
-Tests/QuothKitTests/     unit tests for Kit pieces that run headlessly
+Package.swift            SwiftPM manifest: HushCore, HushKit, and their test targets
+project.yml              XcodeGen spec: app target Hush and UI test target HushUITests
+App/                     main.swift, Info.plist, Hush.entitlements
+Sources/HushCore/       pure logic, Foundation only
+Sources/HushKit/        platform code
+Tests/HushCoreTests/    unit tests for Core
+Tests/HushKitTests/     unit tests for Kit pieces that run headlessly
 UITests/                 XCUITest screenshot suite
 scripts/                 bootstrap.sh, lint.sh, test.sh, capture-screenshots.sh, and CI helpers
 ```
 
-Dependency direction is one way: `App` imports `QuothKit`, `QuothKit` imports `QuothCore`, `QuothCore` imports only Foundation.
+Dependency direction is one way: `App` imports `HushKit`, `HushKit` imports `HushCore`, `HushCore` imports only Foundation.
 
-### QuothCore
+### HushCore
 
 Pure, deterministic Swift. No AppKit, no SwiftUI, no AVFoundation, no network. It builds in seconds and its tests need no app host, no window server, and no permissions.
 
 Exists today:
 
-- `AppInfo` (`Sources/QuothCore/AppInfo.swift`): app name, bundle identifier, repository URL, and a version string read from a bundle.
-- `DemoMode` (`Sources/QuothCore/DemoMode.swift`): parses `-demoMode` and `-demoScene` from a launch argument array. Covered by `Tests/QuothCoreTests/DemoModeTests.swift`.
+- `AppInfo` (`Sources/HushCore/AppInfo.swift`): app name, bundle identifier, repository URL, and a version string read from a bundle.
+- `DemoMode` (`Sources/HushCore/DemoMode.swift`): parses `-demoMode` and `-demoScene` from a launch argument array. Covered by `Tests/HushCoreTests/DemoModeTests.swift`.
 
 Planned:
 
@@ -93,13 +93,13 @@ Planned:
 | `LLMCleaner` protocol | v0.3 | Same shape as `TranscriptionBackend`. Local and cloud implementations. Optional final cleanup stage, and the editor for command mode. |
 | `SecretStore` protocol | v0.3 | Keychain access for API keys. Needed only once a cloud backend exists. |
 
-### QuothKit
+### HushKit
 
 Everything that touches a platform framework. Each platform service is written against a protocol so the coordinator above it can be tested with a fake.
 
 Exists today:
 
-- `AppDelegate` (`Sources/QuothKit/App/AppDelegate.swift`): holds the parsed `DemoMode`, keeps the app alive when the last window closes. `applicationDidFinishLaunching` is empty until the first v0.1 feature lands. Covered by `Tests/QuothKitTests/AppDelegateTests.swift`.
+- `AppDelegate` (`Sources/HushKit/App/AppDelegate.swift`): holds the parsed `DemoMode`, keeps the app alive when the last window closes. `applicationDidFinishLaunching` is empty until the first v0.1 feature lands. Covered by `Tests/HushKitTests/AppDelegateTests.swift`.
 
 Planned:
 
@@ -113,7 +113,7 @@ Planned:
 | `WhisperKitBackend` | v0.1 | On-device transcription. The default backend. |
 | `PasteInserter` | v0.1 | Clipboard save, write, synthetic Cmd+V, restore. |
 | `PermissionsService` | v0.1 | Microphone, Accessibility, Input Monitoring status and prompts. |
-| `DemoScene` registry (`Sources/QuothKit/Demo/`) | v0.1, one scene per window as windows land | Maps a scene name to a window opened with seeded data. |
+| `DemoScene` registry (`Sources/HushKit/Demo/`) | v0.1, one scene per window as windows land | Maps a scene name to a window opened with seeded data. |
 | `AccessibilityInserter` | v0.2 | `AXUIElement` write to `kAXSelectedTextAttribute`, with read-back verification. |
 | Settings and History windows | v0.2 | SwiftUI hosted in `NSWindow`. |
 | `OpenAIBackend`, `DeepgramBackend`, `NetworkGate`, `KeychainSecretStore` | v0.3 | Cloud transcription and the single outbound network gate. |
@@ -121,7 +121,7 @@ Planned:
 
 ### App target
 
-`App/main.swift` is eight lines. It creates an `AppDelegate` from QuothKit, sets the activation policy to `.accessory`, and runs the application. There is no `@main` struct, no storyboard, and no logic in the target.
+`App/main.swift` is eight lines. It creates an `AppDelegate` from HushKit, sets the activation policy to `.accessory`, and runs the application. There is no `@main` struct, no storyboard, and no logic in the target.
 
 ### UITests
 
@@ -130,8 +130,8 @@ Planned:
 ### Why the split
 
 - **Core is Foundation-only and fast to test.** The logic that is easiest to get subtly wrong (hotkey timing, self-correction parsing, punctuation rules, strategy selection) is pure functions and value types. `swift test` runs it without a window server, and the tests are deterministic.
-- **Kit holds platform code behind protocols.** Event taps, audio engines, pasteboards, and AX elements cannot run on CI. Putting each one behind a protocol keeps the coordinator logic above them testable with fakes in `Tests/QuothKitTests/`.
-- **The app target is a thin `main.swift`.** SwiftPM test targets cannot import an application target. Because the app delegate, coordinators, and windows all live in the QuothKit library, everything is reachable from SwiftPM tests. The Xcode project only packages the library into a signed `.app` bundle.
+- **Kit holds platform code behind protocols.** Event taps, audio engines, pasteboards, and AX elements cannot run on CI. Putting each one behind a protocol keeps the coordinator logic above them testable with fakes in `Tests/HushKitTests/`.
+- **The app target is a thin `main.swift`.** SwiftPM test targets cannot import an application target. Because the app delegate, coordinators, and windows all live in the HushKit library, everything is reachable from SwiftPM tests. The Xcode project only packages the library into a signed `.app` bundle.
 
 ## Dictation pipeline
 
@@ -271,7 +271,7 @@ Stage notes:
 
 ## Cleanup pipeline
 
-Exists today (v0.2, issue #24). `CleanupPipeline` in `QuothCore` runs between transcription and insertion. The overlay keeps showing Transcribing while it runs.
+Exists today (v0.2, issue #24). `CleanupPipeline` in `HushCore` runs between transcription and insertion. The overlay keeps showing Transcribing while it runs.
 
 Stage order is the order of `CleanupStages.standard`, and `SettingKeys.cleanupStageIDs` lists the same ids so every stage has a toggle. The planned order is: filler word removal, self-correction, spoken formatting, punctuation and capitalization, dictionary, then the optional model-backed step (`AsyncCleanupStep`), then snippet expansion. Only the stages that are merged appear in `CleanupStages.standard`.
 
@@ -286,7 +286,7 @@ Toggles and fallbacks:
 
 ## Dictation state
 
-Status: **Planned (v0.1).** `DictationState` lives in QuothCore. `DictationCoordinator` is the only writer.
+Status: **Planned (v0.1).** `DictationState` lives in HushCore. `DictationCoordinator` is the only writer.
 
 ```mermaid
 stateDiagram-v2
@@ -389,7 +389,7 @@ Status: **Planned.** No protocol in this table is merged yet.
 | `HTTPTransport` (behind `NetworkGate`) | Kit | `URLSession` transport | `StubTransport`, records requests and returns canned responses | v0.3 |
 | File location for `HistoryStore`, `DictionaryStore`, `SnippetStore` | Core | Application Support directory | temporary directory per test | v0.2, v0.3 |
 
-Demo mode will use the same seams. In demo mode the coordinator will be built with no-op or seeded demo implementations that live in `Sources/QuothKit/Demo/` (not the test fakes, which stay in the test targets), which is how the app will guarantee that it touches no microphone, event tap, Accessibility API, Keychain, or network.
+Demo mode will use the same seams. In demo mode the coordinator will be built with no-op or seeded demo implementations that live in `Sources/HushKit/Demo/` (not the test fakes, which stay in the test targets), which is how the app will guarantee that it touches no microphone, event tap, Accessibility API, Keychain, or network.
 
 ## Threading model
 
@@ -417,13 +417,13 @@ Types that cross actor boundaries (`AudioBuffer`, `Transcript`, `TranscriptionOp
 
 The rule, from the project spec: nothing leaves the machine unless the user picks a cloud backend. With local backends selected, the app makes no network requests other than the one-time model download from Hugging Face by WhisperKit and the Sparkle update check (which can be disabled). API keys live only in the Keychain. Audio is never written to disk. History is stored locally and can be cleared or disabled.
 
-Exists today: the skeleton contains no networking code, no Keychain code, and no audio code. The only entitlement in `App/Quoth.entitlements` is `com.apple.security.device.audio-input`.
+Exists today: the skeleton contains no networking code, no Keychain code, and no audio code. The only entitlement in `App/Hush.entitlements` is `com.apple.security.device.audio-input`.
 
 Planned mechanisms:
 
 ### NetworkGate (v0.3)
 
-Every outbound request that Quoth code makes goes through one type, `NetworkGate`. `NetworkGate` and the `URLSession`-backed `HTTPTransport` it owns (one file) are the only places in the codebase allowed to reference `URLSession`. Backends never see the transport; they call the gate. The gate takes the request and a declared purpose (cloud transcription, cloud LLM cleanup), reads the current settings, and refuses with a thrown error unless a cloud backend is selected for that purpose. A refusal is not a silent no-op, so a bug that tries to send data while local backends are selected fails loudly in tests and in use.
+Every outbound request that Hush code makes goes through one type, `NetworkGate`. `NetworkGate` and the `URLSession`-backed `HTTPTransport` it owns (one file) are the only places in the codebase allowed to reference `URLSession`. Backends never see the transport; they call the gate. The gate takes the request and a declared purpose (cloud transcription, cloud LLM cleanup), reads the current settings, and refuses with a thrown error unless a cloud backend is selected for that purpose. A refusal is not a silent no-op, so a bug that tries to send data while local backends are selected fails loudly in tests and in use.
 
 This gives three properties:
 
@@ -435,7 +435,7 @@ Two network paths are outside the gate because they belong to dependencies, and 
 
 ### SecretStore (v0.3)
 
-API keys for cloud backends are stored only in the Keychain through the `SecretStore` protocol. Keys are never written to `UserDefaults`, JSON files, logs, or history. The settings UI shows whether a key is present, not the key. Tests use the in-memory fake from the test targets, and demo mode will use an in-memory demo implementation from `Sources/QuothKit/Demo/`, so neither touches the real Keychain.
+API keys for cloud backends are stored only in the Keychain through the `SecretStore` protocol. Keys are never written to `UserDefaults`, JSON files, logs, or history. The settings UI shows whether a key is present, not the key. Tests use the in-memory fake from the test targets, and demo mode will use an in-memory demo implementation from `Sources/HushKit/Demo/`, so neither touches the real Keychain.
 
 ### Audio only in memory (v0.1)
 
@@ -443,7 +443,7 @@ API keys for cloud backends are stored only in the Keychain through the `SecretS
 
 ### Local data (v0.2)
 
-History, dictionary, and snippets are JSON files under `~/Library/Application Support/Quoth/`. History stores text, not audio. The user can clear it or turn it off, and turning it off means `HistoryStore.append` is never called, not that entries are hidden.
+History, dictionary, and snippets are JSON files under `~/Library/Application Support/Hush/`. History stores text, not audio. The user can clear it or turn it off, and turning it off means `HistoryStore.append` is never called, not that entries are hidden.
 
 ### Permissions (v0.1)
 
@@ -453,7 +453,7 @@ History, dictionary, and snippets are JSON files under `~/Library/Application Su
 | Accessibility | Posting the synthetic Cmd+V and using the AX API. |
 | Input Monitoring | The listen-only `CGEventTap` that sees the Fn key. |
 
-The event tap is listen-only. Quoth can observe key events in order to detect its hotkey. It does not record them, and it cannot modify or block them.
+The event tap is listen-only. Hush can observe key events in order to detect its hotkey. It does not record them, and it cannot modify or block them.
 
 ## Demo mode and the screenshot pipeline
 
@@ -464,10 +464,10 @@ Every pull request body has a `## Before and After` section. CI fills it with be
 Status: **Exists** (parsing). **Planned** (scenes, as each window lands).
 
 ```
-Quoth.app/Contents/MacOS/Quoth -demoMode YES -demoScene settings-general
+Hush.app/Contents/MacOS/Hush -demoMode YES -demoScene settings-general
 ```
 
-`DemoMode.init(arguments:)` in `Sources/QuothCore/DemoMode.swift` reads the process arguments:
+`DemoMode.init(arguments:)` in `Sources/HushCore/DemoMode.swift` reads the process arguments:
 
 - `-demoMode` followed by `yes`, `true`, or `1` (case-insensitive) enables demo mode. Anything else, or a missing value, leaves it off.
 - `-demoScene <name>` names the scene. It is ignored unless demo mode is on.
@@ -477,7 +477,7 @@ Quoth.app/Contents/MacOS/Quoth -demoMode YES -demoScene settings-general
 
 Planned behavior in demo mode: the app never touches the microphone, event taps, Accessibility, the Keychain, or the network. It uses seeded in-memory data with fixed dates, and it opens the named scene immediately. Fixed dates matter: a relative timestamp such as "2 minutes ago" would make every screenshot differ between runs.
 
-Scenes are registered in `DemoScene` (`Sources/QuothKit/Demo/`, planned). Scene names equal screenshot file names. Planned scenes: `popover`, `overlay-listening`, `overlay-transcribing`, `settings-general`, `settings-hotkeys`, `settings-audio`, `settings-transcription`, `settings-cleanup`, `settings-dictionary`, `settings-snippets`, `settings-privacy`, `history`, `onboarding-welcome`, `onboarding-microphone`, `onboarding-accessibility`. Every new window or tab must add a scene and a UI test in the same pull request.
+Scenes are registered in `DemoScene` (`Sources/HushKit/Demo/`, planned). Scene names equal screenshot file names. Planned scenes: `popover`, `overlay-listening`, `overlay-transcribing`, `settings-general`, `settings-hotkeys`, `settings-audio`, `settings-transcription`, `settings-cleanup`, `settings-dictionary`, `settings-snippets`, `settings-privacy`, `history`, `onboarding-welcome`, `onboarding-microphone`, `onboarding-accessibility`. Every new window or tab must add a scene and a UI test in the same pull request.
 
 ### XCUITest harness
 
@@ -507,7 +507,7 @@ Status: **Exists.**
 
 1. Exits 0 with a message if `<source-dir>` has no `project.yml` or no `UITests` directory. This lets CI point the script at a merge base that predates the suite.
 2. Runs `xcodegen generate --quiet` in `<source-dir>`.
-3. Runs `xcodebuild test` on scheme `Quoth` with `-destination "platform=macOS"`, `-only-testing:QuothUITests`, `CODE_SIGN_IDENTITY=-`, and `-resultBundlePath` set to a temporary `screenshots.xcresult`. The DerivedData location comes from the `DERIVED_DATA_PATH` environment variable and defaults to `<source-dir>/DerivedData`.
+3. Runs `xcodebuild test` on scheme `Hush` with `-destination "platform=macOS"`, `-only-testing:HushUITests`, `CODE_SIGN_IDENTITY=-`, and `-resultBundlePath` set to a temporary `screenshots.xcresult`. The DerivedData location comes from the `DERIVED_DATA_PATH` environment variable and defaults to `<source-dir>/DerivedData`.
 4. Runs `xcrun xcresulttool export attachments --path <bundle> --output-path <dir>`, which writes the attachment files and a `manifest.json`.
 5. Reads the manifest with an inline Python script. Attachments whose `suggestedHumanReadableName` matches `<name>_<index>_<uuid>.png` are copied to `<output-dir>/<name>.png`. Anything else, such as the automatic failure screenshots XCTest adds, is skipped.
 6. Exits with the `xcodebuild` status and prints the log tail on failure. Images captured before a failure are still exported.
@@ -539,7 +539,7 @@ Status: **Exists.**
 
 ### SwiftPM for libraries and unit tests
 
-`Package.swift` (tools version 5.10, platform macOS 14) declares `QuothCore`, `QuothKit` (depends on Core), `QuothCoreTests`, and `QuothKitTests`. The `dependencies` array is empty.
+`Package.swift` (tools version 5.10, platform macOS 14) declares `HushCore`, `HushKit` (depends on Core), `HushCoreTests`, and `HushKitTests`. The `dependencies` array is empty.
 
 ```
 swift build
@@ -553,14 +553,14 @@ Unit tests need no Xcode project and no code signing. In CI, the `unit-tests` jo
 
 SwiftPM cannot produce a macOS `.app` bundle with an `Info.plist`, entitlements, the hardened runtime, and a code signature, and it cannot build an XCUITest bundle. `project.yml` defines those two targets:
 
-- `Quoth` (`application`): sources from `App/`, links the `QuothKit` product of the local package (`packages: Quoth: path: .`), `INFOPLIST_FILE: App/Info.plist`, `CODE_SIGN_ENTITLEMENTS: App/Quoth.entitlements`, hardened runtime on, ad hoc signing (`CODE_SIGN_IDENTITY: "-"`) for local and CI builds.
-- `QuothUITests` (`bundle.ui-testing`): sources from `UITests/`, `TEST_TARGET_NAME: Quoth`.
-- Scheme `Quoth`: builds both targets, tests `QuothUITests`, archives in Release.
+- `Hush` (`application`): sources from `App/`, links the `HushKit` product of the local package (`packages: Hush: path: .`), `INFOPLIST_FILE: App/Info.plist`, `CODE_SIGN_ENTITLEMENTS: App/Hush.entitlements`, hardened runtime on, ad hoc signing (`CODE_SIGN_IDENTITY: "-"`) for local and CI builds.
+- `HushUITests` (`bundle.ui-testing`): sources from `UITests/`, `TEST_TARGET_NAME: Hush`.
+- Scheme `Hush`: builds both targets, tests `HushUITests`, archives in Release.
 
 ```
 scripts/bootstrap.sh
 xcodegen generate
-xcodebuild -project Quoth.xcodeproj -scheme Quoth -destination 'platform=macOS' build
+xcodebuild -project Hush.xcodeproj -scheme Hush -destination 'platform=macOS' build
 scripts/test.sh ui
 ```
 
@@ -568,7 +568,7 @@ scripts/test.sh ui
 
 ### Why the project file is generated
 
-`Quoth.xcodeproj` is never committed.
+`Hush.xcodeproj` is never committed.
 
 - A `.pbxproj` is a large machine-written file with opaque object ids. Two branches that each add a file produce merge conflicts that say nothing about intent. `project.yml` is short enough for a reviewer to read in full.
 - Almost all source files live in SwiftPM targets, which discover files by directory. Adding a source file needs no project change at all.
@@ -576,7 +576,7 @@ scripts/test.sh ui
 
 The cost is one extra command after checkout and after any change to `project.yml`. `scripts/bootstrap.sh`, `scripts/test.sh`, and `scripts/capture-screenshots.sh` all run `xcodegen generate` themselves.
 
-Generated and never committed: `Quoth.xcodeproj`, `.build/`, `DerivedData/`, `build/`, `screenshots/`.
+Generated and never committed: `Hush.xcodeproj`, `.build/`, `DerivedData/`, `build/`, `screenshots/`.
 
 ### Lint
 
@@ -590,9 +590,9 @@ Required checks on `develop` and `main`: `lint`, `unit-tests`, `ui-tests` (all i
 
 ### Listen-only event tap, not an active tap
 
-An active tap (`.defaultTap`) can swallow events. That would let Quoth stop the Fn press from also opening the emoji picker or starting system dictation. But an active tap sits in the input path of every keystroke on the machine. If its callback stalls, typing stalls system-wide until macOS disables the tap. It also gives the process the power to alter keystrokes, which is a lot to ask a user to trust.
+An active tap (`.defaultTap`) can swallow events. That would let Hush stop the Fn press from also opening the emoji picker or starting system dictation. But an active tap sits in the input path of every keystroke on the machine. If its callback stalls, typing stalls system-wide until macOS disables the tap. It also gives the process the power to alter keystrokes, which is a lot to ask a user to trust.
 
-Quoth uses a listen-only tap. It needs Input Monitoring, cannot alter or delay input, and fails safe: if the tap is disabled, the hotkey stops working and nothing else breaks. The cost is that Quoth cannot suppress what the system does with the same key. For the Fn key, onboarding (v1.0) will tell the user to set "Press Fn key to" to "Do Nothing" in System Settings, and the hotkey is configurable (v0.2 settings) for users who prefer another key.
+Hush uses a listen-only tap. It needs Input Monitoring, cannot alter or delay input, and fails safe: if the tap is disabled, the hotkey stops working and nothing else breaks. The cost is that Hush cannot suppress what the system does with the same key. For the Fn key, onboarding (v1.0) will tell the user to set "Press Fn key to" to "Do Nothing" in System Settings, and the hotkey is configurable (v0.2 settings) for users who prefer another key.
 
 ### Paste first in v0.1, Accessibility first from v0.2, always with read-back
 
@@ -606,7 +606,7 @@ History, dictionary, and snippets are small: thousands of short records at most.
 
 ### No App Sandbox
 
-Quoth is not sandboxed and will not ship on the Mac App Store. A sandboxed app cannot post synthetic key events to other apps or use the Accessibility API to write into another app's text field, and inserting text at the cursor of any app is the core function. The hardened runtime is enabled (`ENABLE_HARDENED_RUNTIME: YES` in `project.yml`), and the only entitlement is audio input. Releases will be signed with a Developer ID and notarized (v1.0). The user-visible permission surface is the three TCC prompts listed under [Permissions](#permissions-v01).
+Hush is not sandboxed and will not ship on the Mac App Store. A sandboxed app cannot post synthetic key events to other apps or use the Accessibility API to write into another app's text field, and inserting text at the cursor of any app is the core function. The hardened runtime is enabled (`ENABLE_HARDENED_RUNTIME: YES` in `project.yml`), and the only entitlement is audio input. Releases will be signed with a Developer ID and notarized (v1.0). The user-visible permission surface is the three TCC prompts listed under [Permissions](#permissions-v01).
 
 ### WhisperKit is unsupported on Intel
 
@@ -614,7 +614,7 @@ WhisperKit runs Whisper with Core ML and does not officially support Intel Macs.
 
 ### Logic in a library, not in the app target
 
-Keeping all logic in QuothKit costs one extra module boundary and `public` on the handful of types the app target touches. In return, SwiftPM tests can reach everything, and the generated Xcode project carries almost no state that matters.
+Keeping all logic in HushKit costs one extra module boundary and `public` on the handful of types the app target touches. In return, SwiftPM tests can reach everything, and the generated Xcode project carries almost no state that matters.
 
 ### Squash into develop, merge commit into main
 
@@ -624,7 +624,7 @@ The pull request rules that produce the history are in `CONTRIBUTING.md`. In sho
 
 | Area | Status | Milestone |
 | --- | --- | --- |
-| SwiftPM package, `QuothCore`, `QuothKit`, test targets | Exists | skeleton |
+| SwiftPM package, `HushCore`, `HushKit`, test targets | Exists | skeleton |
 | `AppInfo`, `DemoMode` argument parsing | Exists | skeleton |
 | Agent app shell (`main.swift`, `AppDelegate`, `LSUIElement`, entitlements) | Exists | skeleton |
 | XcodeGen project spec, scripts, SwiftFormat and SwiftLint configuration | Exists | skeleton |

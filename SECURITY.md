@@ -1,12 +1,12 @@
 # Security Policy
 
-Quoth is a macOS menu bar dictation app. To do its job it needs the microphone, Accessibility, and Input Monitoring permissions, which makes security reports about it worth taking seriously. This document says which versions get fixes, how to report a problem, what counts as a vulnerability, and what the project commits to by design.
+Hush is a macOS menu bar dictation app. To do its job it needs the microphone, Accessibility, and Input Monitoring permissions, which makes security reports about it worth taking seriously. This document says which versions get fixes, how to report a problem, what counts as a vulnerability, and what the project commits to by design.
 
 Status as of 2026-09-17: only the project skeleton exists (menu bar agent app shell, demo mode argument parsing, UI test harness, CI). No release has been published. The v0.1 features are in progress. The threat model and design commitments below describe the app as specified, and each item names the milestone in which the relevant code lands. Reports against code on `develop` are welcome now.
 
 ## Supported versions
 
-Quoth is pre-1.0. Only the latest release and the `develop` branch get security fixes. There are no backports to older releases. If you run an older build, update to the latest release first and check whether the problem is still present.
+Hush is pre-1.0. Only the latest release and the `develop` branch get security fixes. There are no backports to older releases. If you run an older build, update to the latest release first and check whether the problem is still present.
 
 | Version | Supported |
 | --- | --- |
@@ -20,13 +20,13 @@ This policy will be revisited at v1.0.
 
 Report privately with GitHub private vulnerability reporting:
 
-https://github.com/ryan-stoffel/quoth/security/advisories/new
+https://github.com/ryan-stoffel/hush/security/advisories/new
 
 You can also reach the form from the repository's Security tab, "Report a vulnerability". Never open a public issue, discussion, or pull request for a suspected vulnerability, and do not describe it in a commit message. The project does not publish a security email address. The advisory form is the only channel.
 
 Include as much of the following as you can:
 
-- The Quoth version or commit hash, and how it was obtained (release download or built from source).
+- The Hush version or commit hash, and how it was obtained (release download or built from source).
 - The macOS version and the Mac's architecture (Apple silicon or Intel).
 - The relevant settings: transcription backend (local or cloud), cleanup backend, insertion behavior, whether history is enabled, whether update checks are enabled.
 - Which permissions were granted (Microphone, Accessibility, Input Monitoring).
@@ -45,13 +45,13 @@ Response targets:
 
 Disclosure is coordinated. The maintainer (@ryan-stoffel) works on the fix in a private fork attached to the advisory, agrees a disclosure date with you, ships the fix in a release, and then publishes the GitHub security advisory with credit unless you ask to stay anonymous. Please do not disclose the issue publicly before that date. If you get no acknowledgement within the target, add a comment on the advisory. Do not move the report to a public channel.
 
-Quoth is maintained by one person in spare time. The targets above are commitments, not guarantees of a fix date. There is no bug bounty.
+Hush is maintained by one person in spare time. The targets above are commitments, not guarantees of a fix date. There is no bug bounty.
 
 ## Scope and threat model
 
 ### What the app holds
 
-Quoth is specified to hold these capabilities. Each one is an asset an attacker would want.
+Hush is specified to hold these capabilities. Each one is an asset an attacker would want.
 
 | Capability | Used for | Lands in |
 | --- | --- | --- |
@@ -86,8 +86,8 @@ If you are unsure whether something qualifies, report it privately anyway.
 
 ### Out of scope
 
-- Attacks that need an already compromised user account or root. An attacker who can run code as the user can already read the user's Application Support files, query the Keychain with the user's consent prompts, and record the screen. Quoth cannot defend against that.
-- The behavior of third-party cloud APIs the user opted into. Once the user selects a cloud backend, audio or text is sent to that provider under that provider's terms. Retention, training use, and breaches on the provider's side are outside this project's control. A bug in how Quoth talks to the provider (wrong host, missing TLS validation, key sent to the wrong endpoint) is in scope.
+- Attacks that need an already compromised user account or root. An attacker who can run code as the user can already read the user's Application Support files, query the Keychain with the user's consent prompts, and record the screen. Hush cannot defend against that.
+- The behavior of third-party cloud APIs the user opted into. Once the user selects a cloud backend, audio or text is sent to that provider under that provider's terms. Retention, training use, and breaches on the provider's side are outside this project's control. A bug in how Hush talks to the provider (wrong host, missing TLS validation, key sent to the wrong endpoint) is in scope.
 - Social engineering of the user or the maintainer, including convincing a user to grant permissions to a modified build.
 - Physical access to an unlocked Mac.
 - Unsigned or ad-hoc signed builds being blocked by Gatekeeper. When signing secrets are not configured, the release workflow produces an ad-hoc signed build that is not notarized, and says so in the release notes. That is expected behavior.
@@ -108,9 +108,9 @@ Beyond that rule:
 - **On-device by default.** The default transcription backend is WhisperKit running locally (v0.1). Cloud backends are opt-in and arrive in v0.3.
 - **Listen-only event tap (v0.1).** The keyboard tap will be created listen-only. It cannot alter or swallow the user's keystrokes, and it will keep no record of events that are not part of hotkey detection.
 - **Clipboard is restored (v0.1).** Paste insertion will always restore the previous clipboard contents, including on failure paths. The transcript will not be left on the clipboard.
-- **Pure logic is isolated.** `QuothCore` is Foundation only: no AppKit, no network. The code that decides what to do with text cannot open a socket. Platform access lives in `QuothKit`.
-- **Hardened runtime.** The app target builds with `ENABLE_HARDENED_RUNTIME: YES` (see `project.yml`), and `scripts/sign-and-notarize.sh` signs with `--options runtime`. The only entitlement in `App/Quoth.entitlements` is `com.apple.security.device.audio-input`. There are no exceptions for unsigned executable memory, library validation, or DYLD environment variables. Changes to entitlements need maintainer review.
-- **No App Sandbox, and why.** Quoth is not sandboxed and is not distributed through the Mac App Store. Its core function is inserting text into other apps, which needs the Accessibility API and posting synthetic key events to other processes. Neither works from inside the App Sandbox. The hardened runtime, the single entitlement, and the macOS permission prompts (Microphone, Accessibility, Input Monitoring) are the boundaries instead. `PermissionsService` (v0.1) is the single place that checks those grants, and a feature does not run without its grant.
+- **Pure logic is isolated.** `HushCore` is Foundation only: no AppKit, no network. The code that decides what to do with text cannot open a socket. Platform access lives in `HushKit`.
+- **Hardened runtime.** The app target builds with `ENABLE_HARDENED_RUNTIME: YES` (see `project.yml`), and `scripts/sign-and-notarize.sh` signs with `--options runtime`. The only entitlement in `App/Hush.entitlements` is `com.apple.security.device.audio-input`. There are no exceptions for unsigned executable memory, library validation, or DYLD environment variables. Changes to entitlements need maintainer review.
+- **No App Sandbox, and why.** Hush is not sandboxed and is not distributed through the Mac App Store. Its core function is inserting text into other apps, which needs the Accessibility API and posting synthetic key events to other processes. Neither works from inside the App Sandbox. The hardened runtime, the single entitlement, and the macOS permission prompts (Microphone, Accessibility, Input Monitoring) are the boundaries instead. `PermissionsService` (v0.1) is the single place that checks those grants, and a feature does not run without its grant.
 - **Demo mode only removes access.** Demo mode exists so CI can screenshot the UI without permissions. It is specified to use seeded in-memory data and to never touch the microphone, event taps, Accessibility, the Keychain, or the network. Scenes with seeded in-memory data are in progress; only argument parsing is merged. Demo mode must never become a way to reach those with fewer checks.
 - **Signed releases and updates.** From v1.0, releases are signed with a Developer ID certificate and notarized, and Sparkle verifies every update against the project's EdDSA public key before installing it. The EdDSA private key and the signing credentials exist only as GitHub Actions secrets used by `release.yml`. They are never committed.
 - **CI runs with least privilege.** Pull request workflows use only `GITHUB_TOKEN`. The check workflows (`ci.yml`, `branch-name.yml`, `linked-issue.yml`, `pr-format.yml`) are read-only. The `screenshots` workflow gets `contents: write` and `pull-requests: write` and nothing more. Pull requests from forks get a read-only token. Signing and Sparkle secrets are read only by `release.yml`, which runs on `v*` tags.
@@ -126,4 +126,4 @@ The dependency policy is deliberately strict: two pre-approved third-party depen
 
 Dependabot (`.github/dependabot.yml`) checks the `swift` and `github-actions` ecosystems weekly and opens pull requests against `develop`. Those pull requests must pass the `lint`, `unit-tests`, and `ui-tests` jobs like any other change. The branch name, linked issue, and PR format checks are skipped for Dependabot, and a maintainer reviews each update before it is merged.
 
-If you find a vulnerability in WhisperKit or Sparkle, report it to that project. If the way Quoth uses the dependency makes the problem exploitable, or a fixed version needs to be pulled in quickly, report it here as well through the private advisory form.
+If you find a vulnerability in WhisperKit or Sparkle, report it to that project. If the way Hush uses the dependency makes the problem exploitable, or a fixed version needs to be pulled in quickly, report it here as well through the private advisory form.

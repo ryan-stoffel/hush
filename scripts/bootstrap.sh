@@ -14,4 +14,4 @@ for tool in xcodegen swiftformat swiftlint; do
 done
 
 xcodegen generate
-echo "Generated Quoth.xcodeproj. Open it in Xcode or use scripts/test.sh."
+echo "Generated Hush.xcodeproj. Open it in Xcode or use scripts/test.sh."

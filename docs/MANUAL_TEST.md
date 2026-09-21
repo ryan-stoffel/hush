@@ -4,14 +4,14 @@ This is the checklist for everything CI cannot cover. It is run by a person, on 
 
 ## Why this exists
 
-CI runs on GitHub-hosted macOS runners. Those machines cannot exercise the core of Quoth:
+CI runs on GitHub-hosted macOS runners. Those machines cannot exercise the core of Hush:
 
 - They have no microphone input, so `AudioCaptureService` has nothing to capture.
 - The app under test has no Accessibility grant and no Input Monitoring grant, and there is no way to grant them on a hosted runner. The Fn key event tap and the synthetic Cmd+V cannot run.
 - They have no Neural Engine, so on-device Whisper inference does not run the way it does on a user's Mac.
 - The XCUITest suite launches the app with `-demoMode YES -demoScene <name>`. In demo mode the app never touches the microphone, event taps, Accessibility, the Keychain, or the network. The UI tests prove that windows render. They prove nothing about dictation.
 
-What CI does cover: lint, unit tests for `QuothCore` and the headless parts of `QuothKit`, and the screenshot suite. Everything between "the user holds a key" and "text appears in another app" is verified here.
+What CI does cover: lint, unit tests for `HushCore` and the headless parts of `HushKit`, and the screenshot suite. Everything between "the user holds a key" and "text appears in another app" is verified here.
 
 ## Status of this document
 
@@ -22,7 +22,7 @@ The sections below describe the expected behavior of the finished features. A se
 | Section | Milestone | Applies today |
 | --- | --- | --- |
 | 1. Setup | skeleton | yes |
-| 2. Launch and menu bar | v0.1 | partly (no Dock icon, not in Cmd+Tab, launch opens no window; quit with `pkill -x Quoth` until the popover exists) |
+| 2. Launch and menu bar | v0.1 | partly (no Dock icon, not in Cmd+Tab, launch opens no window; quit with `pkill -x Hush` until the popover exists) |
 | 3. Permissions | v0.1 | no |
 | 4. Hotkey | v0.1 | no |
 | 5. Audio capture | v0.1 | no |
@@ -65,46 +65,46 @@ A failure found before a release blocks the release until it is fixed or the mai
 Start from a clean build and clean permissions so that results are comparable between runs.
 
 - [ ] Tools are installed: `scripts/bootstrap.sh` (or `brew install xcodegen swiftformat swiftlint`, then `xcodegen generate`).
-- [ ] Quit any running copy of Quoth: `pkill -x Quoth` (no output and a non-zero exit code means none was running).
+- [ ] Quit any running copy of Hush: `pkill -x Hush` (no output and a non-zero exit code means none was running).
 - [ ] Remove old build products: `rm -rf DerivedData build`.
-- [ ] Build: `xcodebuild -project Quoth.xcodeproj -scheme Quoth -destination 'platform=macOS' -derivedDataPath DerivedData build`. Expected: `BUILD SUCCEEDED`.
-- [ ] Reset every privacy grant for the app: `tccutil reset All io.github.ryan-stoffel.quoth`. Expected: `Successfully reset All approval status for io.github.ryan-stoffel.quoth`.
-- [ ] Clear stored preferences if you want a true first run: `defaults delete io.github.ryan-stoffel.quoth` (an error saying the domain does not exist is fine).
-- [ ] Launch the app normally, without demo mode arguments: `open DerivedData/Build/Products/Debug/Quoth.app`.
+- [ ] Build: `xcodebuild -project Hush.xcodeproj -scheme Hush -destination 'platform=macOS' -derivedDataPath DerivedData build`. Expected: `BUILD SUCCEEDED`.
+- [ ] Reset every privacy grant for the app: `tccutil reset All io.github.ryan-stoffel.hush`. Expected: `Successfully reset All approval status for io.github.ryan-stoffel.hush`.
+- [ ] Clear stored preferences if you want a true first run: `defaults delete io.github.ryan-stoffel.hush` (an error saying the domain does not exist is fine).
+- [ ] Launch the app normally, without demo mode arguments: `open DerivedData/Build/Products/Debug/Hush.app`.
 - [ ] Record the commit SHA, Mac model, and macOS version in the results header.
 
 Notes on TCC and ad-hoc signing:
 
-- Local builds are ad-hoc signed (`CODE_SIGN_IDENTITY: "-"` in project.yml). macOS ties Accessibility and Input Monitoring grants to the code signature. An ad-hoc signature changes with every rebuild, so a rebuild can silently invalidate a grant: System Settings still shows Quoth as enabled, but the event tap or the synthetic paste no longer works.
-- If the hotkey or insertion stops working after a rebuild, do not file a bug yet. Run `tccutil reset All io.github.ryan-stoffel.quoth`, relaunch, grant again, and retest.
-- Always test the app from the same path. A second copy of Quoth.app elsewhere on disk shares the bundle id and confuses the permission lists.
+- Local builds are ad-hoc signed (`CODE_SIGN_IDENTITY: "-"` in project.yml). macOS ties Accessibility and Input Monitoring grants to the code signature. An ad-hoc signature changes with every rebuild, so a rebuild can silently invalidate a grant: System Settings still shows Hush as enabled, but the event tap or the synthetic paste no longer works.
+- If the hotkey or insertion stops working after a rebuild, do not file a bug yet. Run `tccutil reset All io.github.ryan-stoffel.hush`, relaunch, grant again, and retest.
+- Always test the app from the same path. A second copy of Hush.app elsewhere on disk shares the bundle id and confuses the permission lists.
 - Builds signed with a Developer ID keep their grants across updates. As of 2026-09-17 no signing secrets are configured, so `release.yml` produces ad-hoc signed builds and the signing path is untested. A signed build exists only after a tag is pushed. Once signing is set up, push a pre-release tag (for example `vX.Y.Z-rc.1`, see Versioning in docs/RELEASING.md) to get a signed build from `release.yml`, and run sections 3, 4, 8 and the Signed release checks against it before tagging the final version. Do this only while `SPARKLE_ED_PRIVATE_KEY` is not set: once it is, a pre-release tag also reaches the appcast.
 
 ## 2. Launch and menu bar
 
 - [ ] No Dock icon appears at launch or at any later point (`LSUIElement` is set in App/Info.plist).
-- [ ] Quoth does not appear in the Cmd+Tab switcher.
+- [ ] Hush does not appear in the Cmd+Tab switcher.
 - [ ] Launching the app does not open any window when onboarding has already been completed.
 - [ ] A status item is visible in the menu bar. It is legible in both light and dark menu bars and with "Reduce transparency" on.
 - [ ] Clicking the status item opens the popover. Clicking outside closes it. Pressing Escape closes it.
 - [ ] The status item icon reflects each `DictationState`: idle, listening (while the hotkey is held), transcribing (after release), and error. It returns to idle after each dictation.
 - [ ] With many menu bar items or a notched display, the status item is still reachable. If macOS hides it behind the notch, note that in the results.
 - [ ] Launching a second copy does not produce two status items.
-- [ ] Quit from the popover or menu terminates the process: `pgrep -x Quoth` prints nothing.
-- [ ] Closing every Quoth window does not quit the app (`applicationShouldTerminateAfterLastWindowClosed` returns false).
+- [ ] Quit from the popover or menu terminates the process: `pgrep -x Hush` prints nothing.
+- [ ] Closing every Hush window does not quit the app (`applicationShouldTerminateAfterLastWindowClosed` returns false).
 
 ## 3. Permissions
 
-Quoth needs three grants. Microphone: capture. Accessibility: post the synthetic Cmd+V and use the AX API. Input Monitoring: the listen-only CGEventTap that sees the Fn key.
+Hush needs three grants. Microphone: capture. Accessibility: post the synthetic Cmd+V and use the AX API. Input Monitoring: the listen-only CGEventTap that sees the Fn key.
 
-Run each block from a reset state (`tccutil reset All io.github.ryan-stoffel.quoth`, then relaunch).
+Run each block from a reset state (`tccutil reset All io.github.ryan-stoffel.hush`, then relaunch).
 
 ### Microphone
 
-- [ ] The system microphone prompt appears the first time capture is requested, with a usage description that explains why Quoth needs the microphone (`NSMicrophoneUsageDescription` in App/Info.plist, added by the audio capture issue; without it macOS kills the app on first capture). It does not appear at launch before the user has done anything.
+- [ ] The system microphone prompt appears the first time capture is requested, with a usage description that explains why Hush needs the microphone (`NSMicrophoneUsageDescription` in App/Info.plist, added by the audio capture issue; without it macOS kills the app on first capture). It does not appear at launch before the user has done anything.
 - [ ] Click "Don't Allow". Expected: no crash, no hang in the listening state. The app shows a clear error that names the microphone permission and says where to fix it (System Settings, Privacy and Security, Microphone).
 - [ ] Holding the hotkey again while denied shows the same error. It does not show the system prompt again (macOS only prompts once) and it does not fail silently.
-- [ ] Enable Quoth under System Settings, Privacy and Security, Microphone. Expected: the app detects the grant without a relaunch, or tells the user plainly that a relaunch is needed. Dictation then works.
+- [ ] Enable Hush under System Settings, Privacy and Security, Microphone. Expected: the app detects the grant without a relaunch, or tells the user plainly that a relaunch is needed. Dictation then works.
 
 ### Accessibility
 
@@ -135,7 +135,7 @@ Default hotkey: hold Fn (Globe) to talk, release to stop. Logic lives in `Hotkey
 - [ ] Fn+F-keys (brightness, volume, or F1 to F12, depending on the keyboard setting) do not start a dictation and still work.
 - [ ] Fn+Delete (forward delete) does not start a dictation and still deletes.
 - [ ] Hold Fn, then press another key mid-dictation. Expected: the behavior is consistent (either the dictation is cancelled or it continues). Record which. No stuck listening state.
-- [ ] The hotkey works while another app is frontmost (TextEdit, Safari). Quoth never becomes the frontmost app.
+- [ ] The hotkey works while another app is frontmost (TextEdit, Safari). Hush never becomes the frontmost app.
 - [ ] The hotkey works while another app is in native full screen.
 - [ ] The hotkey works on a second Space and on a second display.
 - [ ] Hold Fn, switch apps with Cmd+Tab while still holding, release. Expected: no stuck state. Text goes to the app that is frontmost at release, or the dictation is cancelled. Record which.
@@ -149,12 +149,12 @@ External keyboards:
 - [ ] Third-party keyboard without an Fn key, or whose Fn key is handled in keyboard firmware and never reaches macOS: holding its Fn does nothing, which is expected. The app must offer a way to choose another hotkey (settings, v0.2). Until settings exist, record that Fn is not available on this keyboard.
 - [ ] With a third-party keyboard attached, Fn on the built-in keyboard still works.
 
-Globe key system setting (System Settings, Keyboard, "Press Globe key to"). Quoth uses a listen-only tap, so it cannot stop macOS from also acting on the key. Test each value and record what happens on hold and on quick tap:
+Globe key system setting (System Settings, Keyboard, "Press Globe key to"). Hush uses a listen-only tap, so it cannot stop macOS from also acting on the key. Test each value and record what happens on hold and on quick tap:
 
 - [ ] "Do Nothing": dictation works and macOS does nothing else. This is the recommended setting.
 - [ ] "Change Input Source": record whether the input source changes after a hold.
 - [ ] "Show Emoji & Symbols": record whether the picker opens after a hold, and whether it steals the inserted text.
-- [ ] "Start Dictation" (press twice): record whether Apple dictation is triggered by normal Quoth use.
+- [ ] "Start Dictation" (press twice): record whether Apple dictation is triggered by normal Hush use.
 - [ ] If any value other than "Do Nothing" breaks dictation, the app must tell the user about the setting. Record whether it does.
 
 Hands-free toggle mode, once merged:
@@ -179,14 +179,14 @@ Hands-free toggle mode, once merged:
 
 No audio on disk. Audio is never written to disk. Verify it, do not assume it:
 
-- [ ] While capturing, list the files the process has open: `lsof -p "$(pgrep -x Quoth)" | grep -Ei '\.(wav|caf|aif|aiff|m4a|mp3|flac|pcm|raw)'`. Expected: no output.
-- [ ] While capturing, look at every regular file open for writing: `lsof -p "$(pgrep -x Quoth)" | awk '$4 ~ /[0-9]+[wu]/ && $5 == "REG"'`. Expected: nothing that could hold audio. Log files and the JSON stores are fine. Anything that grows while you speak is a failure.
+- [ ] While capturing, list the files the process has open: `lsof -p "$(pgrep -x Hush)" | grep -Ei '\.(wav|caf|aif|aiff|m4a|mp3|flac|pcm|raw)'`. Expected: no output.
+- [ ] While capturing, look at every regular file open for writing: `lsof -p "$(pgrep -x Hush)" | awk '$4 ~ /[0-9]+[wu]/ && $5 == "REG"'`. Expected: nothing that could hold audio. Log files and the JSON stores are fine. Anything that grows while you speak is a failure.
 - [ ] After several dictations, search the places the app can write. The app is not sandboxed, so it has no `~/Library/Containers` entry. Check that too, so that a future sandboxing change does not go unnoticed:
 
   ```
-  find ~/Library/Application\ Support/Quoth \
-       ~/Library/Caches/io.github.ryan-stoffel.quoth \
-       ~/Library/Containers/io.github.ryan-stoffel.quoth \
+  find ~/Library/Application\ Support/Hush \
+       ~/Library/Caches/io.github.ryan-stoffel.hush \
+       ~/Library/Containers/io.github.ryan-stoffel.hush \
        "$TMPDIR" /private/tmp \
        -type f -mmin -30 \
        \( -iname '*.wav' -o -iname '*.caf' -o -iname '*.aif*' -o -iname '*.m4a' -o -iname '*.mp3' -o -iname '*.flac' -o -iname '*.pcm' -o -iname '*.raw' \) \
@@ -194,9 +194,9 @@ No audio on disk. Audio is never written to disk. Verify it, do not assume it:
   ```
 
   Expected: no output. Directories that do not exist are fine. `/private/tmp` is used because `/tmp` is a symlink on macOS and `find` does not follow it.
-- [ ] List everything the app wrote in the last 30 minutes, whatever the extension: `find ~/Library/Application\ Support/Quoth ~/Library/Caches/io.github.ryan-stoffel.quoth -type f -mmin -30 -exec ls -la {} + 2>/dev/null`. Expected: only small, explainable files. Any file of several hundred kilobytes or more that appeared after a dictation needs an explanation. Model files are the exception.
-- [ ] The temporary directories are shared with every other app, so list only large recent files there: `find "$TMPDIR" /private/tmp -type f -mmin -30 -size +200k -exec ls -la {} + 2>/dev/null`. Look only at files you can attribute to Quoth (by name, or because they appear in the `lsof` output above). Expected: none.
-- [ ] Force quit during capture (`pkill -9 -x Quoth`), then repeat the three `find` commands. Expected: still no audio on disk.
+- [ ] List everything the app wrote in the last 30 minutes, whatever the extension: `find ~/Library/Application\ Support/Hush ~/Library/Caches/io.github.ryan-stoffel.hush -type f -mmin -30 -exec ls -la {} + 2>/dev/null`. Expected: only small, explainable files. Any file of several hundred kilobytes or more that appeared after a dictation needs an explanation. Model files are the exception.
+- [ ] The temporary directories are shared with every other app, so list only large recent files there: `find "$TMPDIR" /private/tmp -type f -mmin -30 -size +200k -exec ls -la {} + 2>/dev/null`. Look only at files you can attribute to Hush (by name, or because they appear in the `lsof` output above). Expected: none.
+- [ ] Force quit during capture (`pkill -9 -x Hush`), then repeat the three `find` commands. Expected: still no audio on disk.
 
 ## 6. Overlay
 
@@ -208,7 +208,7 @@ No audio on disk. Audio is never written to disk. Verify it, do not assume it:
 - [ ] Elapsed time counts up from 0:00 in whole seconds and matches a stopwatch over 30 seconds.
 - [ ] The frontmost app keeps focus: its window title bar stays active and its menu bar stays in place.
 - [ ] The caret in the frontmost app's text field keeps blinking while the overlay is visible. Type a letter with the other hand while holding Fn: it lands in the text field.
-- [ ] Clicking on the overlay does not activate Quoth and does not take focus from the text field.
+- [ ] Clicking on the overlay does not activate Hush and does not take focus from the text field.
 - [ ] The overlay is visible over an app in native full screen (Safari, Keynote in presentation mode if available).
 - [ ] The overlay is visible on every Space. Hold the hotkey, switch Space with Ctrl+arrow: the overlay follows.
 - [ ] With two displays, the overlay appears on one display only, and on the expected one.
@@ -226,7 +226,7 @@ Default backend: `WhisperKitBackend`, on device. WhisperKit does not officially 
 
 First run model download (the default large-v3 turbo model is about 630 MB):
 
-- [ ] Remove any previously downloaded model so that this is a true first run. The models live in ~/Library/Application Support/Quoth/Models.
+- [ ] Remove any previously downloaded model so that this is a true first run. The models live in ~/Library/Application Support/Hush/Models.
 - [ ] The first dictation (or onboarding, v1.0) starts the model download. Progress is visible and moves. The user is told the approximate size.
 - [ ] Dictating while the download is in progress gives a clear "model is still downloading" message. No crash and no silent drop.
 - [ ] Turn Wi-Fi off mid-download. Expected: a clear error. Turn Wi-Fi on: the download resumes or restarts on retry. No corrupt half-model is used.
@@ -294,7 +294,7 @@ Per-app expectations:
 Password field. The field is a secure text field, and macOS enables secure input while it is focused, which blocks event taps. Expected safe behavior:
 
 - [ ] Most likely the hotkey does nothing while the field is focused. That is a pass. The app must not get stuck in the listening state.
-- [ ] If a dictation does start (for example it began before the field was focused), Quoth either refuses to insert and says why, or inserts the text. The insertion issue decides which and updates this item. In both cases the hard requirements are: Quoth never reads the contents of a secure field through the AX API, the transcript is not written to history (v0.2), and the clipboard is restored.
+- [ ] If a dictation does start (for example it began before the field was focused), Hush either refuses to insert and says why, or inserts the text. The insertion issue decides which and updates this item. In both cases the hard requirements are: Hush never reads the contents of a secure field through the AX API, the transcript is not written to history (v0.2), and the clipboard is restored.
 - [ ] After leaving the password field, dictation into a normal field works again without a relaunch.
 
 Other insertion cases:
@@ -335,7 +335,7 @@ The core loop: focus a text field, hold the hotkey, speak, release, text is inse
 - [ ] Run the loop five more times, alternating between two apps (TextEdit and Safari). Expected: text always lands in the app that is frontmost.
 - [ ] Leave the app idle for 30 minutes, then dictate. Expected: it works, and the delay is not much worse than the median above. Record it.
 - [ ] Dictate on battery with Low Power Mode on. Record the delay.
-- [ ] After all of the above, the state is idle, the microphone indicator is off, and `lsof -p "$(pgrep -x Quoth)" | wc -l` is not far above its value after the first dictation (no descriptor leak).
+- [ ] After all of the above, the state is idle, the microphone indicator is off, and `lsof -p "$(pgrep -x Hush)" | wc -l` is not far above its value after the first dictation (no descriptor leak).
 
 Latency record:
 
@@ -349,8 +349,8 @@ The privacy rule: nothing leaves the machine unless the user picks a cloud backe
 
 Network, with local backends selected and the model already downloaded:
 
-- [ ] Start `nettop -p "$(pgrep -x Quoth)"` in a terminal (or watch Quoth in Little Snitch or LuLu). Dictate ten sentences, open every window, and leave the app idle for ten minutes. Expected: no connections at all. Before v1.0 there is no updater, so the expected count is zero.
-- [ ] Cross-check with `lsof -i -a -p "$(pgrep -x Quoth)"` right after a dictation. Expected: no output.
+- [ ] Start `nettop -p "$(pgrep -x Hush)"` in a terminal (or watch Hush in Little Snitch or LuLu). Dictate ten sentences, open every window, and leave the app idle for ten minutes. Expected: no connections at all. Before v1.0 there is no updater, so the expected count is zero.
+- [ ] Cross-check with `lsof -i -a -p "$(pgrep -x Hush)"` right after a dictation. Expected: no output.
 - [ ] On a first run with no model, the only hosts contacted are Hugging Face hosts (`huggingface.co` and its CDN hosts). List every host you saw in the results. Any other host is a failure.
 - [ ] After the download completes, relaunch and repeat the first item. Expected: zero connections. No version check, no analytics, no crash reporter.
 - [ ] From v1.0: the Sparkle update check is the only additional connection, it goes only to the appcast URL on GitHub Pages, and turning automatic update checks off stops it. The updater issue extends this item.
@@ -359,34 +359,34 @@ Network, with local backends selected and the model already downloaded:
 Disk:
 
 - [ ] Run the "No audio on disk" checks from section 5 after the full end to end run.
-- [ ] Look at everything the app wrote: `ls -laR ~/Library/Application\ Support/Quoth`. Expected: only the JSON stores described in docs/ARCHITECTURE.md (history, dictionary, snippets, once they exist) and nothing else. No transcripts anywhere other than the history store.
-- [ ] No transcript text in logs: dictate the distinctive phrase "purple giraffe umbrella", then run `log show --last 15m --predicate 'process == "Quoth"' | grep -i "giraffe"`. Expected: no output.
+- [ ] Look at everything the app wrote: `ls -laR ~/Library/Application\ Support/Hush`. Expected: only the JSON stores described in docs/ARCHITECTURE.md (history, dictionary, snippets, once they exist) and nothing else. No transcripts anywhere other than the history store.
+- [ ] No transcript text in logs: dictate the distinctive phrase "purple giraffe umbrella", then run `log show --last 15m --predicate 'process == "Hush"' | grep -i "giraffe"`. Expected: no output.
 
 UserDefaults and secrets:
 
-- [ ] `defaults read io.github.ryan-stoffel.quoth`. Expected: settings only. Nothing that looks like a key: no long random strings, nothing starting with `sk-`, no field named like `apiKey`, `token`, or `secret` with a value. No transcripts.
-- [ ] `grep -rIlE '(^|[^a-z])sk-[A-Za-z0-9]{8,}' ~/Library/Application\ Support/Quoth 2>/dev/null`. Expected: no output.
-- [ ] `defaults export io.github.ryan-stoffel.quoth - | grep -E 'sk-[A-Za-z0-9]{8,}'`. Expected: no output. The preferences plist is binary, so `grep` on the file itself would skip it.
-- [ ] From v0.3: after saving an API key in settings, it is present in Keychain Access under the Quoth service and absent from `defaults read` and from Application Support. After removing the key in settings, the Keychain item is gone.
+- [ ] `defaults read io.github.ryan-stoffel.hush`. Expected: settings only. Nothing that looks like a key: no long random strings, nothing starting with `sk-`, no field named like `apiKey`, `token`, or `secret` with a value. No transcripts.
+- [ ] `grep -rIlE '(^|[^a-z])sk-[A-Za-z0-9]{8,}' ~/Library/Application\ Support/Hush 2>/dev/null`. Expected: no output.
+- [ ] `defaults export io.github.ryan-stoffel.hush - | grep -E 'sk-[A-Za-z0-9]{8,}'`. Expected: no output. The preferences plist is binary, so `grep` on the file itself would skip it.
+- [ ] From v0.3: after saving an API key in settings, it is present in Keychain Access under the Hush service and absent from `defaults read` and from Application Support. After removing the key in settings, the Keychain item is gone.
 
 Demo mode isolation (this protects CI, and works on the skeleton today):
 
-- [ ] Launch with `open DerivedData/Build/Products/Debug/Quoth.app --args -demoMode YES -demoScene popover`. Expected: no microphone prompt, no Accessibility or Input Monitoring request, no Keychain prompt, and zero connections in `nettop`.
+- [ ] Launch with `open DerivedData/Build/Products/Debug/Hush.app --args -demoMode YES -demoScene popover`. Expected: no microphone prompt, no Accessibility or Input Monitoring request, no Keychain prompt, and zero connections in `nettop`.
 
 ## 12. Idle resource use
 
 - [ ] Launch the app, dictate once so the model is loaded, then leave the Mac alone for ten minutes with the popover closed.
-- [ ] In Activity Monitor, CPU tab: Quoth shows 0.0 to 0.1 percent CPU while idle, with no periodic spikes. Anything steadily above 1 percent is a failure. Record the value.
+- [ ] In Activity Monitor, CPU tab: Hush shows 0.0 to 0.1 percent CPU while idle, with no periodic spikes. Anything steadily above 1 percent is a failure. Record the value.
 - [ ] Energy tab: Energy Impact is about 0 and "Preventing Sleep" is No.
 - [ ] Memory tab: record the Memory value before the first dictation (model not loaded), right after it, and after ten minutes idle. Expected: the idle value is stable, not growing. Record whether the model stays resident or is unloaded.
 - [ ] Record the same numbers after the ten-run end to end test. Expected: memory after twenty dictations is close to memory after one (no per-dictation leak). A rise of more than about 50 MB needs an explanation.
 - [ ] Idle wakeups (add the "Idle Wake Ups" column): low and steady. A listen-only event tap should not cause hundreds of wakeups per second while no keys are pressed.
-- [ ] The Mac still goes to sleep on schedule with Quoth running.
+- [ ] The Mac still goes to sleep on schedule with Hush running.
 - [ ] Skeleton check that applies today: the shell app idles at 0.0 percent CPU and a few tens of MB of memory.
 
 ## 13. Spoken formatting (v0.2)
 
-`SpokenFormatting` in `QuothCore` is unit tested, including transcripts captured from the real model. These checks cover live speech into TextEdit. Pause briefly around each command; the model then writes it as its own clause.
+`SpokenFormatting` in `HushCore` is unit tested, including transcripts captured from the real model. These checks cover live speech into TextEdit. Pause briefly around each command; the model then writes it as its own clause.
 
 - [ ] Say "Hi Sam comma new line thanks for the update period". Expected: "Hi Sam," then a line break, then "Thanks for the update."
 - [ ] Say "intro new paragraph body". Expected: a blank line between the two words, and "Body" capitalized.
@@ -402,7 +402,7 @@ Demo mode isolation (this protects CI, and works on the skeleton today):
 - [ ] Dictate a sentence in another language with auto-detect on. Expected: English command words are not converted.
 - [ ] On macOS 26 with Apple Intelligence turned on: say "what is the capital of France question mark". Expected: "What is the capital of France?" inserted, and never an answer. The on-device cleanup pass only fixes spelling, casing, and punctuation.
 - [ ] With Apple Intelligence turned off: dictation still works and the rule-based result is inserted without delay.
-- [ ] Ollama case. Install Ollama, run `ollama pull llama3.2`, then enable the local server cleaner (the Cleanup tab arrives with #33; until then use `defaults write io.github.ryan-stoffel.quoth cleanup.localServer.enabled '[true]'` and relaunch). Dictate the no-commands text below. Expected: structured output, and `nettop` shows connections to 127.0.0.1:11434 only. Quit Ollama and dictate again: the rule-based text is inserted after at most 5 seconds.
+- [ ] Ollama case. Install Ollama, run `ollama pull llama3.2`, then enable the local server cleaner (the Cleanup tab arrives with #33; until then use `defaults write io.github.ryan-stoffel.hush cleanup.localServer.enabled '[true]'` and relaunch). Dictate the no-commands text below. Expected: structured output, and `nettop` shows connections to 127.0.0.1:11434 only. Quit Ollama and dictate again: the rule-based text is inserted after at most 5 seconds.
 - [ ] With an on-device model available, say without any commands: "add a login page to the app, requirements, email and password fields, a remember me checkbox, steps, first create the form component, second wire it to the auth API, third add tests". Expected: a first sentence, a "Requirements:" line with two "- " items, a "Steps:" line with three numbered items, and no word changed.
 
 ## 14. Later milestones
@@ -411,7 +411,7 @@ The features below do not exist yet. Each heading names the milestone and gives 
 
 ### Cleanup pipeline (v0.2)
 
-Rules are unit tested in `QuothCore` (`FillerWordRemover`, `SelfCorrectionParser`, `PunctuationAndCapitalization`). The manual checks cover real speech, which unit tests cannot.
+Rules are unit tested in `HushCore` (`FillerWordRemover`, `SelfCorrectionParser`, `PunctuationAndCapitalization`). The manual checks cover real speech, which unit tests cannot.
 
 - [ ] Say "um, so I think, uh, we should ship it". Expected: fillers removed, the rest intact: "So I think we should ship it."
 - [ ] Say "let's meet Tuesday, no wait, Wednesday". Expected: only the corrected version is inserted.
@@ -421,7 +421,7 @@ Rules are unit tested in `QuothCore` (`FillerWordRemover`, `SelfCorrectionParser
 ### Dictionary (v0.2)
 
 - [ ] Add a custom word that Whisper gets wrong (a surname or a product name). Dictate it. Expected: the dictionary spelling is inserted.
-- [ ] Entries survive a relaunch, and live in a JSON file under `~/Library/Application Support/Quoth`.
+- [ ] Entries survive a relaunch, and live in a JSON file under `~/Library/Application Support/Hush`.
 - [ ] Removing an entry takes effect on the next dictation without a relaunch.
 
 ### History (v0.2, window merged)
@@ -430,9 +430,9 @@ Rules are unit tested in `QuothCore` (`FillerWordRemover`, `SelfCorrectionParser
 - [ ] Select an entry: the Inserted text and the Heard transcript appear, with words that cleanup removed struck through in red, plus language, model, audio length, insertion strategy, and app.
 - [ ] Copy for Inserted and Copy for Heard put the right text on the clipboard.
 - [ ] Type in the search field: matches on heard text, inserted text, and app name, ignoring case and accents.
-- [ ] Delete removes the entry and selects the next one. Clear All asks for confirmation, then empties the list and ~/Library/Application Support/Quoth/history.json.
+- [ ] Delete removes the entry and selects the next one. Clear All asks for confirmation, then empties the list and ~/Library/Application Support/Hush/history.json.
 - [ ] A dictation whose insertion failed shows "Not inserted" in the list and the reason in the note.
-- [ ] With history turned off (`defaults write io.github.ryan-stoffel.quoth history.enabled '[false]'`, relaunch), new dictations are not recorded and the window offers to turn history back on.
+- [ ] With history turned off (`defaults write io.github.ryan-stoffel.hush history.enabled '[false]'`, relaunch), new dictations are not recorded and the window offers to turn history back on.
 
 - [ ] Each dictation appears in the History window with the right text and time. Newest first.
 - [ ] "Clear history" empties the window and the file on disk: check the JSON store for leftover text.
@@ -444,7 +444,7 @@ Rules are unit tested in `QuothCore` (`FillerWordRemover`, `SelfCorrectionParser
 - [ ] Every setting takes effect without a relaunch, or says that a relaunch is needed.
 - [ ] Changing the hotkey: the new hotkey works, the old one stops working, and section 4 passes with the new hotkey. A hotkey that conflicts with a common system shortcut is refused or warned about.
 - [ ] Selecting a specific input device overrides the system default, and falls back cleanly when that device is unplugged.
-- [ ] Settings survive a relaunch. `defaults delete io.github.ryan-stoffel.quoth` returns the app to defaults without a crash.
+- [ ] Settings survive a relaunch. `defaults delete io.github.ryan-stoffel.hush` returns the app to defaults without a crash.
 
 ### Snippets (v0.3)
 
@@ -478,6 +478,6 @@ Rules are unit tested in `QuothCore` (`FillerWordRemover`, `SelfCorrectionParser
 
 ### Signed release (v1.0)
 
-- [ ] Download the zip from the GitHub release on a Mac that has never run Quoth. Expected: it opens after the normal Gatekeeper dialog, with no "damaged" or "unidentified developer" warning.
-- [ ] `spctl -a -vv /Applications/Quoth.app` reports `accepted` and `Notarized Developer ID`. `codesign --verify --deep --strict /Applications/Quoth.app` exits 0.
-- [ ] `lipo -archs /Applications/Quoth.app/Contents/MacOS/Quoth` prints `x86_64 arm64`. The app launches on an Intel Mac, where the local backend reports itself unavailable.
+- [ ] Download the zip from the GitHub release on a Mac that has never run Hush. Expected: it opens after the normal Gatekeeper dialog, with no "damaged" or "unidentified developer" warning.
+- [ ] `spctl -a -vv /Applications/Hush.app` reports `accepted` and `Notarized Developer ID`. `codesign --verify --deep --strict /Applications/Hush.app` exits 0.
+- [ ] `lipo -archs /Applications/Hush.app/Contents/MacOS/Hush` prints `x86_64 arm64`. The app launches on an Intel Mac, where the local backend reports itself unavailable.

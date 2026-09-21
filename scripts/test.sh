@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 MODE="${1:-all}"
-SCHEME="Quoth"
+SCHEME="Hush"
 DERIVED_DATA="${DERIVED_DATA_PATH:-$PWD/DerivedData}"
 
 run_unit() {

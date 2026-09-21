@@ -11,7 +11,7 @@ fi
 SOURCE_DIR="$(cd "$1" && pwd)"
 mkdir -p "$2"
 OUTPUT_DIR="$(cd "$2" && pwd)"
-SCHEME="Quoth"
+SCHEME="Hush"
 DERIVED_DATA="${DERIVED_DATA_PATH:-$SOURCE_DIR/DerivedData}"
 WORK_DIR="$(mktemp -d)"
 RESULT_BUNDLE="$WORK_DIR/screenshots.xcresult"

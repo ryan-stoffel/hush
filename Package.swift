@@ -5,11 +5,11 @@ import PackageDescription
 // Every entry in `dependencies` must carry a comment that says what it is for and why the
 // standard SDK cannot do the job. Adding one needs an approved issue first (see AGENTS.md).
 let package = Package(
-    name: "Quoth",
+    name: "Hush",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "QuothCore", targets: ["QuothCore"]),
-        .library(name: "QuothKit", targets: ["QuothKit"]),
+        .library(name: "HushCore", targets: ["HushCore"]),
+        .library(name: "HushKit", targets: ["HushKit"]),
     ],
     dependencies: [
         // WhisperKit (pre-approved): on-device Whisper inference on Core ML and the Neural Engine,
@@ -22,12 +22,12 @@ let package = Package(
     ],
     targets: [
         // Pure logic. Foundation only, so it stays fast to build and trivial to unit test.
-        .target(name: "QuothCore"),
+        .target(name: "HushCore"),
         // Platform layer: AppKit, SwiftUI, AVFoundation, Accessibility, WhisperKit.
         .target(
-            name: "QuothKit",
+            name: "HushKit",
             dependencies: [
-                "QuothCore",
+                "HushCore",
                 .product(
                     name: "WhisperKit",
                     package: "argmax-oss-swift",
@@ -35,10 +35,10 @@ let package = Package(
                 ),
             ]
         ),
-        .testTarget(name: "QuothCoreTests", dependencies: ["QuothCore"]),
+        .testTarget(name: "HushCoreTests", dependencies: ["HushCore"]),
         .testTarget(
-            name: "QuothKitTests",
-            dependencies: ["QuothKit"],
+            name: "HushKitTests",
+            dependencies: ["HushKit"],
             resources: [.copy("Resources/sample-speech.wav")]
         ),
     ]
