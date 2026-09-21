@@ -160,7 +160,7 @@ jobs:
             {
               echo "Development build from \`develop\` at ${GITHUB_SHA:0:7}. Every merge to develop produces one of these."
               echo
-              echo "Install or upgrade with Homebrew: \`brew install ryan-stoffel/taps/hush\` then \`brew upgrade hush\`."
+              echo "Install or upgrade with Homebrew: \`brew install --cask ryan-stoffel/taps/hush-dictation\` then \`brew upgrade --cask hush-dictation\`."
               echo
               echo "Changes since the previous dev build:"
               PREVIOUS="$(git tag --list 'v*-dev.*' --sort=-v:refname | grep -v "^$TAG$" | head -n 1 || true)"
@@ -205,15 +205,16 @@ jobs:
           fi
           NOTARIZED_FLAG=""
           if [ "${NOTARIZED:-false}" = "true" ]; then NOTARIZED_FLAG="--notarized"; fi
-          python3 scripts/update_cask.py --version "$VERSION" --sha256 "$SHA256" --repo "$GITHUB_REPOSITORY" --output tap/Casks/hush.rb $NOTARIZED_FLAG
+          python3 scripts/update_cask.py --version "$VERSION" --sha256 "$SHA256" --repo "$GITHUB_REPOSITORY" --output tap/Casks/hush-dictation.rb $NOTARIZED_FLAG
           cd tap
-          git add Casks/hush.rb
+          git rm -q --ignore-unmatch Casks/hush.rb
+          git add Casks/hush-dictation.rb
           if git diff --cached --quiet; then
             echo "Cask already at $VERSION."
             exit 0
           fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit --quiet -m "hush $VERSION"
+            commit --quiet -m "hush-dictation $VERSION"
           git push --quiet origin HEAD
 
       - name: Cask update skipped
