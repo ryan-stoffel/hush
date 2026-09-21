@@ -130,10 +130,10 @@ jobs:
         run: |
           if [ "$HAS_SIGNING" = "true" ]; then
             echo "::notice::Signed with the configured certificate but not notarized (NOTARY_* secrets missing)."
-            echo "UNSIGNED_NOTE=This build is signed but not notarized. macOS Gatekeeper blocks it until you allow it in System Settings, Privacy and Security, or install with brew install --no-quarantine." >> "$GITHUB_ENV"
+            echo "UNSIGNED_NOTE=This build is signed but not notarized. macOS Gatekeeper blocks it until you allow it in System Settings, Privacy and Security, or run xattr -dr com.apple.quarantine /Applications/Hush.app." >> "$GITHUB_ENV"
           else
             echo "::notice::Signing secrets are not configured. The build is ad-hoc signed and not notarized."
-            echo "UNSIGNED_NOTE=This build is ad-hoc signed and not notarized. macOS Gatekeeper blocks it until you allow it in System Settings, Privacy and Security, or install with brew install --no-quarantine. Permission grants do not survive upgrades of ad-hoc builds." >> "$GITHUB_ENV"
+            echo "UNSIGNED_NOTE=This build is ad-hoc signed and not notarized. macOS Gatekeeper blocks it until you allow it in System Settings, Privacy and Security, or run xattr -dr com.apple.quarantine /Applications/Hush.app. Permission grants do not survive upgrades of ad-hoc builds." >> "$GITHUB_ENV"
           fi
 
       - name: Zip

@@ -44,9 +44,10 @@ end
 CAVEAT_UNSIGNED = """\
     Hush is not notarized yet, so macOS blocks the first launch of a downloaded copy.
 
-      Install with:  brew install --cask --no-quarantine ryan-stoffel/taps/hush
-      Or afterwards: xattr -dr com.apple.quarantine /Applications/Hush.app
-      Or:            open Hush once, then System Settings > Privacy & Security > Open Anyway."""
+      After install: xattr -dr com.apple.quarantine /Applications/Hush.app
+      Or:            open Hush once, then System Settings > Privacy & Security > Open Anyway.
+
+    Homebrew 7 removed --no-quarantine, so repeat the xattr step after each upgrade."""
 CAVEAT_NOTARIZED = """\
     Hush is signed with a Developer ID and notarized by Apple."""
 
