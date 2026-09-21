@@ -4,9 +4,9 @@ AGENTS.md and CLAUDE.md carry the same content and must be kept in sync. Any cha
 
 ## What this project is
 
-Quoth is an open-source macOS menu bar app for voice dictation: hold a key, speak, release, and cleaned-up text is inserted at the cursor in any app, on-device by default. Status as of 2026-09-17: only the skeleton is merged (menu bar agent app shell, demo mode argument parsing, UI test harness, CI); every type named below that is not in `Sources/` yet is planned, and v0.1 is in progress.
+Hush is an open-source macOS menu bar app for voice dictation: hold a key, speak, release, and cleaned-up text is inserted at the cursor in any app, on-device by default. Status as of 2026-09-17: only the skeleton is merged (menu bar agent app shell, demo mode argument parsing, UI test harness, CI); every type named below that is not in `Sources/` yet is planned, and v0.1 is in progress.
 
-Facts: repo https://github.com/ryan-stoffel/quoth, maintainer @ryan-stoffel, bundle id `io.github.ryan-stoffel.quoth`, MIT, macOS 14+, arm64 and x86_64, Swift tools version 5.10, Xcode 16 or newer (CI uses Xcode 26 on macos-26 runners).
+Facts: repo https://github.com/ryan-stoffel/hush, maintainer @ryan-stoffel, bundle id `io.github.ryan-stoffel.hush`, MIT, macOS 14+, arm64 and x86_64, Swift tools version 5.10, Xcode 16 or newer (CI uses Xcode 26 on macos-26 runners).
 
 Milestones:
 
@@ -36,11 +36,11 @@ Command mode (v0.3): second hotkey, reads selected text, speech is the instructi
 LLM returns replacement text, inserted over the selection.
 ```
 
-Three layers. Dependencies point downward only: App -> QuothKit -> QuothCore.
+Three layers. Dependencies point downward only: App -> HushKit -> HushCore.
 
 `App/` (app target): `main.swift` creates `AppDelegate` and runs `NSApplication` with the `.accessory` activation policy. No logic lives here.
 
-`QuothCore` (pure, deterministic, Foundation only, fully unit tested):
+`HushCore` (pure, deterministic, Foundation only, fully unit tested):
 
 - Merged: `AppInfo`, `DemoMode` (parses `-demoMode YES -demoScene <name>`).
 - `DictationState`: idle, listening, transcribing, error(message).
@@ -51,7 +51,7 @@ Three layers. Dependencies point downward only: App -> QuothKit -> QuothCore.
 - `InsertionStrategySelector`: picks accessibility or clipboardPaste for the frontmost app from bundle id and AX capability probes.
 - `HistoryStore`, `DictionaryStore`, `SnippetStore`: local JSON files in Application Support. `SettingsStore` over UserDefaults. `SecretStore` protocol for the Keychain.
 
-`QuothKit` (platform: AppKit, SwiftUI, AVFoundation, Accessibility, WhisperKit):
+`HushKit` (platform: AppKit, SwiftUI, AVFoundation, Accessibility, WhisperKit):
 
 - Merged: `AppDelegate` (holds the parsed `DemoMode`, keeps the app alive with no windows).
 - `AppCoordinator` owns the pipeline. `DemoScene` registers scenes and seeded data.
@@ -70,30 +70,30 @@ Longer form: `docs/ARCHITECTURE.md`.
 
 | Path | Contents |
 | --- | --- |
-| `Package.swift` | SwiftPM manifest: `QuothCore`, `QuothKit`, and their test targets. Every dependency is justified in a comment. |
-| `project.yml` | XcodeGen spec. Generates `Quoth.xcodeproj` with the `Quoth` app target, the `QuothUITests` target, and the `Quoth` scheme. |
-| `App/` | App target only: `main.swift`, `Info.plist`, `Quoth.entitlements`. `Assets.xcassets` arrives with the first icon. |
-| `Sources/QuothCore/` | Pure logic. |
-| `Sources/QuothKit/` | Platform code, grouped in subfolders by area (`App/` exists today). |
-| `Tests/QuothCoreTests/` | Unit tests for Core. |
-| `Tests/QuothKitTests/` | Unit tests for Kit pieces that run headlessly, using fakes. |
+| `Package.swift` | SwiftPM manifest: `HushCore`, `HushKit`, and their test targets. Every dependency is justified in a comment. |
+| `project.yml` | XcodeGen spec. Generates `Hush.xcodeproj` with the `Hush` app target, the `HushUITests` target, and the `Hush` scheme. |
+| `App/` | App target only: `main.swift`, `Info.plist`, `Hush.entitlements`. `Assets.xcassets` arrives with the first icon. |
+| `Sources/HushCore/` | Pure logic. |
+| `Sources/HushKit/` | Platform code, grouped in subfolders by area (`App/` exists today). |
+| `Tests/HushCoreTests/` | Unit tests for Core. |
+| `Tests/HushKitTests/` | Unit tests for Kit pieces that run headlessly, using fakes. |
 | `UITests/` | XCUITest screenshot suite: `ScreenshotHarness.swift` (base class `ScreenshotTestCase`), `ScreenshotTests.swift`. |
 | `scripts/` | `bootstrap.sh`, `lint.sh`, `test.sh`, `capture-screenshots.sh`, `pr_screenshots.py`, `check_pr.py`, `changelog_release.py`, `sign-and-notarize.sh`. |
 | `docs/` | `ARCHITECTURE.md`, `RESEARCH.md`, `RELEASING.md`, `MANUAL_TEST.md`. |
 | `.github/` | Workflows, issue and PR templates, `CODEOWNERS`, `dependabot.yml`. |
 
-Generated, never committed: `Quoth.xcodeproj`, `.build/`, `DerivedData/`, `build/`, `screenshots/`.
+Generated, never committed: `Hush.xcodeproj`, `.build/`, `DerivedData/`, `build/`, `screenshots/`.
 
 Where to add things:
 
 | To add | Put it here | Also required in the same PR |
 | --- | --- | --- |
-| Demo scene | A case in `DemoScene`, `Sources/QuothKit/Demo/` (the folder arrives with the first scene). The scene name equals the screenshot file name, for example `settings-audio`. | Seeded in-memory data with fixed dates. A UI test for the scene. |
+| Demo scene | A case in `DemoScene`, `Sources/HushKit/Demo/` (the folder arrives with the first scene). The scene name equals the screenshot file name, for example `settings-audio`. | Seeded in-memory data with fixed dates. A UI test for the scene. |
 | UI test | A `test...` method in `UITests/ScreenshotTests.swift`: `launch(scene: "<name>")`, then `capture(<element>, named: "<name>")`. | The demo scene it launches. |
-| Cleanup stage | A type in `Sources/QuothCore/` conforming to the pipeline stage protocol, inserted at the right position in `CleanupPipeline`'s ordered stage list. | Table-style unit tests in `Tests/QuothCoreTests/`, including the stage's position relative to its neighbors. |
-| Transcription or LLM backend | The protocol stays in `Sources/QuothCore/`. The conforming type goes in `Sources/QuothKit/`. API keys go through `SecretStore`. | A fake-driven test in `Tests/QuothKitTests/`. A row in the Settings transcription tab. `docs/MANUAL_TEST.md` steps. |
-| Settings tab | A SwiftUI view in `Sources/QuothKit/`, registered with the Settings window. Persisted values go through `SettingsStore`. | Scene `settings-<tab>` and its UI test. |
-| Store or state machine | `Sources/QuothCore/`. | Unit tests in `Tests/QuothCoreTests/`. |
+| Cleanup stage | A type in `Sources/HushCore/` conforming to the pipeline stage protocol, inserted at the right position in `CleanupPipeline`'s ordered stage list. | Table-style unit tests in `Tests/HushCoreTests/`, including the stage's position relative to its neighbors. |
+| Transcription or LLM backend | The protocol stays in `Sources/HushCore/`. The conforming type goes in `Sources/HushKit/`. API keys go through `SecretStore`. | A fake-driven test in `Tests/HushKitTests/`. A row in the Settings transcription tab. `docs/MANUAL_TEST.md` steps. |
+| Settings tab | A SwiftUI view in `Sources/HushKit/`, registered with the Settings window. Persisted values go through `SettingsStore`. | Scene `settings-<tab>` and its UI test. |
+| Store or state machine | `Sources/HushCore/`. | Unit tests in `Tests/HushCoreTests/`. |
 
 Every new window or tab must add a scene and a UI test in the same PR.
 
@@ -106,9 +106,9 @@ Run from the repo root.
 | Bootstrap (installs xcodegen, swiftformat, swiftlint with Homebrew if missing, generates the project) | `scripts/bootstrap.sh` |
 | Install tools by hand | `brew install xcodegen swiftformat swiftlint` |
 | Regenerate the Xcode project | `xcodegen generate` |
-| Build headlessly | `xcodebuild -project Quoth.xcodeproj -scheme Quoth -destination 'platform=macOS' build` |
+| Build headlessly | `xcodebuild -project Hush.xcodeproj -scheme Hush -destination 'platform=macOS' build` |
 | Unit tests | `scripts/test.sh unit` (runs `swift test`) |
-| UI tests | `scripts/test.sh ui` (regenerates the project, runs `QuothUITests`, result bundle at `build/ui-tests.xcresult`) |
+| UI tests | `scripts/test.sh ui` (regenerates the project, runs `HushUITests`, result bundle at `build/ui-tests.xcresult`) |
 | Unit then UI tests | `scripts/test.sh` |
 | Lint (check mode, what CI runs) | `scripts/lint.sh` |
 | Lint fix | `scripts/lint.sh --fix` |
@@ -121,8 +121,8 @@ UI tests launch the real app and drive the screen. They need a logged-in GUI ses
 ## Conventions
 
 - Swift style is whatever `.swiftformat` and `.swiftlint.yml` produce: 4 spaces, 120 columns, trailing commas, no redundant `self`. SwiftLint runs `--strict`, so warnings fail CI. `force_unwrapping` is an error: use `guard let`, `if let`, or `XCTUnwrap` in tests.
-- QuothCore imports Foundation only. AppKit, SwiftUI, AVFoundation, network, and third-party imports belong in QuothKit.
-- Every platform boundary (microphone, event tap, pasteboard, event posting, AX, Keychain, network, clock, file system location) sits behind a protocol. Production types live in QuothKit, fakes live in the test targets, and logic is tested through the fakes.
+- HushCore imports Foundation only. AppKit, SwiftUI, AVFoundation, network, and third-party imports belong in HushKit.
+- Every platform boundary (microphone, event tap, pasteboard, event posting, AX, Keychain, network, clock, file system location) sits behind a protocol. Production types live in HushKit, fakes live in the test targets, and logic is tested through the fakes.
 - Plain ASCII in code, comments, commit messages, PR text, and docs. No emojis, no icon characters.
 - Comments only where the logic is not obvious. Explain why, not what.
 - The dependency list is closed. Pre-approved: WhisperKit (https://github.com/argmaxinc/argmax-oss-swift, product WhisperKit, from 1.1.0), added by the v0.1 transcription issue, and Sparkle (from 2.10.0), added in v1.0 and not before. Anything else needs an issue and maintainer sign-off first. Each entry in `Package.swift` carries a comment that says what it is for and why the SDK cannot do the job.
@@ -186,7 +186,7 @@ Example: `feat(hotkey): add hold mode to the hotkey state machine`
 
 | Layer | Command | Covers |
 | --- | --- | --- |
-| Unit | `scripts/test.sh unit` | QuothCore logic and QuothKit pieces behind fakes. Headless. Seconds. |
+| Unit | `scripts/test.sh unit` | HushCore logic and HushKit pieces behind fakes. Headless. Seconds. |
 | UI | `scripts/test.sh ui` | The app launched in demo mode, one scene per test, one PNG attachment per scene. Needs a GUI session. |
 | Screenshots | `scripts/capture-screenshots.sh . screenshots` | The same suite, exported to `<scene-name>.png` files. CI runs it on the merge base and the PR head. |
 | Manual | `docs/MANUAL_TEST.md` | Everything below. |
@@ -202,7 +202,7 @@ An agent cannot speak into a microphone or grant TCC permissions. When a PR touc
 - [ ] New logic has unit tests. New windows and tabs have a demo scene and a UI test.
 - [ ] `scripts/lint.sh` passes.
 - [ ] `scripts/test.sh` passes, or the PR states exactly which half was not run locally and why.
-- [ ] QuothCore still imports Foundation only. No new dependency.
+- [ ] HushCore still imports Foundation only. No new dependency.
 - [ ] Demo mode still reaches no microphone, event tap, AX, Keychain, or network code.
 - [ ] The privacy rule holds: no new network request with local backends selected, no audio on disk, keys only in the Keychain.
 - [ ] `CHANGELOG.md` has an Unreleased entry if the change is user visible.

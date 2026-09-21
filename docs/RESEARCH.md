@@ -1,6 +1,6 @@
-# Research: how Wispr Flow works today, and what that means for Quoth
+# Research: how Wispr Flow works today, and what that means for Hush
 
-Research date: 2026-09-17. Status of Quoth on that date: only the project skeleton exists (menu bar agent app shell, demo mode argument parsing, UI test harness, CI). Every Quoth behavior described below is planned, with the milestone named. Nothing here is a claim that a feature works.
+Research date: 2026-09-17. Status of Hush on that date: only the project skeleton exists (menu bar agent app shell, demo mode argument parsing, UI test harness, CI). Every Hush behavior described below is planned, with the milestone named. Nothing here is a claim that a feature works.
 
 ## Contents
 
@@ -8,7 +8,7 @@ Research date: 2026-09-17. Status of Quoth on that date: only the project skelet
 2. [Product snapshot](#2-product-snapshot)
 3. [Feature inventory](#3-feature-inventory)
 4. [Core interaction details](#4-core-interaction-details)
-5. [What reviewers praise and criticize, and what that means for Quoth](#5-what-reviewers-praise-and-criticize-and-what-that-means-for-quoth)
+5. [What reviewers praise and criticize, and what that means for Hush](#5-what-reviewers-praise-and-criticize-and-what-that-means-for-hush)
 6. [Open-source landscape](#6-open-source-landscape)
 7. [Technical findings that shape the build](#7-technical-findings-that-shape-the-build)
 8. [Deliberate differences from Wispr Flow](#8-deliberate-differences-from-wispr-flow)
@@ -18,7 +18,7 @@ Research date: 2026-09-17. Status of Quoth on that date: only the project skelet
 
 ## 1. Purpose and method
 
-Quoth is an open-source macOS menu bar app for voice dictation, inspired by tools like Wispr Flow. Before writing feature code we recorded how Wispr Flow behaves today, so that Quoth's defaults (hotkeys, overlay behavior, cleanup rules, failure handling) match what users of that category of app already expect, and so that we avoid its known problems.
+Hush is an open-source macOS menu bar app for voice dictation, inspired by tools like Wispr Flow. Before writing feature code we recorded how Wispr Flow behaves today, so that Hush's defaults (hotkeys, overlay behavior, cleanup rules, failure handling) match what users of that category of app already expect, and so that we avoid its known problems.
 
 All pages were fetched on 2026-09-17. Six research passes were run and their results merged here:
 
@@ -95,9 +95,9 @@ Resource use (medium). The widely repeated figures of about 800 MB idle RAM, 8% 
 
 ## 3. Feature inventory
 
-Quoth milestones, from the project plan: v0.1 (menu bar, hotkey, capture, local transcription, paste insertion), v0.2 (cleanup, dictionary, history, settings), v0.3 (snippets, command mode, cloud backends), v1.0 (onboarding, updater, signed release). "Not scheduled" means there is no milestone yet and the work needs an issue first.
+Hush milestones, from the project plan: v0.1 (menu bar, hotkey, capture, local transcription, paste insertion), v0.2 (cleanup, dictionary, history, settings), v0.3 (snippets, command mode, cloud backends), v1.0 (onboarding, updater, signed release). "Not scheduled" means there is no milestone yet and the work needs an issue first.
 
-| Feature | Wispr Flow today (Mac defaults) | Quoth plan | Milestone |
+| Feature | Wispr Flow today (Mac defaults) | Hush plan | Milestone |
 | --- | --- | --- | --- |
 | Push to talk | Hold Fn, speak, release. Falls back to Ctrl+Opt when no Apple Fn key is detected at first run | Same defaults. Fn via a listen-only event tap, Ctrl+Opt offered as a second binding | v0.1 |
 | Hands-free | Fn+Space, or double-tap the push-to-talk key from idle or mid-session to lock. Press again to stop. Fallback Ctrl+Opt+Space. The dedicated binding can be deleted | Same: toggle binding Fn+Space plus double-tap lock in `HotkeyStateMachine` | v0.1 |
@@ -123,7 +123,7 @@ Quoth milestones, from the project plan: v0.1 (menu bar, hotkey, capture, local 
 | Microphone selection | Auto-detect or a ranked device list. AirPods flagged. Virtual devices hidden by default | Device picker in the Audio settings tab, following the system default by default | v0.2 |
 | Sounds | Start ping and stop sound behind a Sound Effects toggle. Optional mute of other audio while dictating, off by default on Mac | Start and stop sounds with a toggle, in the Audio settings tab | v0.2 |
 | Settings | Modal with General, System, Vibe coding, Experimental, and Account groups | Tabs: General, Hotkeys, Audio, Transcription, Cleanup, Dictionary, Snippets, Privacy | v0.2 (Snippets tab in v0.3) |
-| Shortcut editor and validation | Max 3 keys, modifier required, no left plus right mix, no Caps Lock, no duplicates, reserved OS shortcuts rejected, up to 4 bindings per action | Same validation rules in QuothCore, unit tested | v0.2 |
+| Shortcut editor and validation | Max 3 keys, modifier required, no left plus right mix, no Caps Lock, no duplicates, reserved OS shortcuts rejected, up to 4 bindings per action | Same validation rules in HushCore, unit tested | v0.2 |
 | Onboarding | About 16 steps, 5 to 8 minutes: sign-in, permissions, questions, mic test, shortcut, languages, practice demos, data choice | Welcome, Microphone, Accessibility (and Input Monitoring). No sign-in. No survey | v1.0 |
 | Launch at login | On by default. Reviewers report it re-adds itself to login items | Off by default. `SMAppService.mainApp`, toggle reads live status | v1.0 |
 | Auto-update | Built in. Restarts are deferred until idle | Sparkle 2.10, check can be disabled | v1.0 |
@@ -145,7 +145,7 @@ Quoth milestones, from the project plan: v0.1 (menu bar, hotkey, capture, local 
 - Key presses are ignored while the app is initializing, stopping, processing, or retrying.
 - Keyboard shortcuts are never suppressed: other apps still receive them. Only bound mouse buttons are swallowed.
 
-Quoth (v0.1): identical hold semantics. The listen-only tap means the hotkey always reaches the frontmost app too, which matches this behavior.
+Hush (v0.1): identical hold semantics. The listen-only tap means the hotkey always reaches the frontmost app too, which matches this behavior.
 
 ### Hands-free and double-tap lock
 
@@ -157,7 +157,7 @@ Quoth (v0.1): identical hold semantics. The listen-only tap means the hotkey alw
 - A session auto-stops on the 20-minute limit, on no audio detected, on mic acquisition failure, or on loss of internet.
 - The double-tap window and the minimum hold duration are not documented anywhere. Open-source projects use 150 ms to 500 ms hold thresholds (see section 6).
 
-Quoth (v0.1): `HotkeyStateMachine` implements hold and toggle. The double-tap window and minimum hold will be constants in QuothCore, chosen from the open-source range and covered by unit tests.
+Hush (v0.1): `HotkeyStateMachine` implements hold and toggle. The double-tap window and minimum hold will be constants in HushCore, chosen from the open-source range and covered by unit tests.
 
 ### Flow Bar pill
 
@@ -174,7 +174,7 @@ Quoth (v0.1): `HotkeyStateMachine` implements hold and toggle. The double-tap wi
 - No source documents a case of the pill stealing keyboard focus. The Scratchpad panel is explicitly described as not stealing focus.
 - The look of the processing state and any distinct Command Mode visual are not documented.
 
-Quoth (v0.1): the overlay is a display-only panel that appears only while listening or transcribing, so there is no always-on pill to cover controls. It ignores mouse events, which makes click-through total. A persistent or draggable pill is not planned.
+Hush (v0.1): the overlay is a display-only panel that appears only while listening or transcribing, so there is no always-on pill to cover controls. It ignores mouse events, which makes click-through total. A persistent or draggable pill is not planned.
 
 ### Command mode
 
@@ -186,7 +186,7 @@ Quoth (v0.1): the overlay is a display-only panel that appears only while listen
 - Reviewers call Command Mode glitchy (medium, Zapier).
 - Transforms (beta, 2026-05-01) is a separate feature: Opt+1 Polish, Opt+2 Prompt Engineer, Opt+O View Diff, up to 9 slots, selection of 1 to 1,000 words.
 
-Quoth (v0.3): hotkey only, no spoken wake phrase, no web-search commands. When there is no selection, Quoth will say so instead of failing silently.
+Hush (v0.3): hotkey only, no spoken wake phrase, no web-search commands. When there is no selection, Hush will say so instead of failing silently.
 
 ### Backtrack and auto-edits
 
@@ -201,7 +201,7 @@ Quoth (v0.3): hotkey only, no spoken wake phrase, no web-search commands. When t
 - Auto Cleanup levels: None (raw), Light (default: fillers and grammar), Medium (clarity and concision, may reword). Cleanup is skipped for very short or very long text. Over-editing is the most common quality complaint, and Wispr shipped a fix for it on 2026-07-09.
 - Undo: Cmd+Z right after the paste, or an undo item on the history row that shows the raw version.
 
-Quoth (v0.2): the rule stages run in a fixed order (`FillerWordRemover`, `SelfCorrectionParser`, `SpokenPunctuation`, `PunctuationAndCapitalization`, `DictionaryApplier`, `SnippetExpander`, then the optional `LLMCleaner`). The default is conservative: rules only, no rewording. Verbatim is a first-class option. The raw transcript is kept with each history entry.
+Hush (v0.2): the rule stages run in a fixed order (`FillerWordRemover`, `SelfCorrectionParser`, `SpokenPunctuation`, `PunctuationAndCapitalization`, `DictionaryApplier`, `SnippetExpander`, then the optional `LLMCleaner`). The default is conservative: rules only, no rewording. Verbatim is a first-class option. The raw transcript is kept with each history entry.
 
 ### Dictionary and auto-learn
 
@@ -214,7 +214,7 @@ Quoth (v0.2): the rule stages run in a fixed order (`FillerWordRemover`, `SelfCo
 - Wispr's own docs warn that very large dictionaries reduce accuracy and suggest trimming to about 200 terms (medium).
 - Auto-learn: with auto-add enabled, the app monitors the text box it pasted into. If the user changes the spelling of a transcribed word, the new spelling is added. Auto-added words carry a sparkle badge. It cannot read secure fields and stops when focus is lost.
 
-Quoth (v0.2): manual dictionary with both entry kinds, import and export. Vocabulary is passed to WhisperKit as prompt tokens, which the decoder trims to the last 111 tokens, so the practical vocabulary budget is small and the most relevant terms must be chosen. Auto-learn is not scheduled, because it requires watching a text field after the paste.
+Hush (v0.2): manual dictionary with both entry kinds, import and export. Vocabulary is passed to WhisperKit as prompt tokens, which the decoder trims to the last 111 tokens, so the practical vocabulary budget is small and the most relevant terms must be chosen. Auto-learn is not scheduled, because it requires watching a text field after the paste.
 
 ### Snippets
 
@@ -225,7 +225,7 @@ Quoth (v0.2): manual dictionary with both entry kinds, import and export. Vocabu
 - Bulk import is a JSON array of phrase and replacement pairs, under 3 MB and 1,000 items.
 - Cmd+Enter saves.
 
-Quoth (v0.3): same limits and matching rules, plain text, import and export.
+Hush (v0.3): same limits and matching rules, plain text, import and export.
 
 ### Styles and per-app tone
 
@@ -236,7 +236,7 @@ Quoth (v0.3): same limits and matching rules, plain text, import and export.
 - No style is pre-selected on desktop. Styles are optimized for English.
 - Outside messaging apps, Casual drops periods for dictations up to about ten sentences and Very Casual always drops them.
 
-Quoth: not scheduled. URL-based detection conflicts with the no app or URL tracking commitment in section 5.
+Hush: not scheduled. URL-based detection conflicts with the no app or URL tracking commitment in section 5.
 
 ### Languages and auto-detect
 
@@ -246,11 +246,11 @@ Quoth: not scheduled. URL-based detection conflicts with the no app or URL track
 - Some variants exclude each other (US, British, and Canadian English; German and Swiss German; Simplified and Traditional Chinese; Hindi and romanized Hinglish).
 - Languages are pre-filled from the system locale during onboarding. The app interface language is a separate setting.
 
-Quoth (v0.2): language picker and auto-detect in the Transcription tab. Per-session detection matches how Whisper works.
+Hush (v0.2): language picker and auto-detect in the Transcription tab. Per-session detection matches how Whisper works.
 
 ### Whisper mode
 
-There is no toggle. The help center says whispering simply works and that quality depends on mic distance. It discourages AirPods and earbuds, recommends close mics, and recommends selecting the mic manually. Quoth needs no feature here.
+There is no toggle. The help center says whispering simply works and that quality depends on mic distance. It discourages AirPods and earbuds, recommends close mics, and recommends selecting the mic manually. Hush needs no feature here.
 
 ### History, Scratchpad, and notes
 
@@ -260,7 +260,7 @@ There is no toggle. The help center says whispering simply works and that qualit
 - Storage options: store locally (default), auto-delete every 24 hours, never store. Never store disables history.
 - Scratchpad (formerly Notes, beta since 2026-05-01) is a floating multi-tab rich-text notepad opened with Opt+S, with cloud sync, version history, and image paste. It does not steal focus. It doubles as a place to dictate when an app refuses the paste.
 
-Quoth (v0.2): a History window, grouped by day and searchable, stored as local JSON, with clear and disable options. No audio is kept, so there is no playback and retry is not possible after the buffer is released. No Scratchpad.
+Hush (v0.2): a History window, grouped by day and searchable, stored as local JSON, with clear and disable options. No audio is kept, so there is no playback and retry is not possible after the buffer is released. No Scratchpad.
 
 ### Onboarding sequence
 
@@ -281,7 +281,7 @@ Official Mac sequence:
 
 A skip prompt shortens this to permissions, mic test, shortcut, and language. Progress is saved if the user quits. Shortcuts stay inactive until the dictation step. A third-party teardown (medium) counts about 16 steps over roughly 8 minutes. Reviewers still describe the time from install to first dictation as short, because there is no model picker.
 
-Quoth (v1.0): Welcome, Microphone, Accessibility and Input Monitoring, then done. Same auto-advance and open-the-right-pane behavior. The one step Quoth adds is the one-time model download.
+Hush (v1.0): Welcome, Microphone, Accessibility and Input Monitoring, then done. Same auto-advance and open-the-right-pane behavior. The one step Hush adds is the one-time model download.
 
 ### Permissions
 
@@ -290,7 +290,7 @@ Quoth (v1.0): Welcome, Microphone, Accessibility and Input Monitoring, then done
 - After an OS or app update, the documented fix is to toggle the permissions off and on, or remove and re-add the app in the Accessibility list.
 - Secure Keyboard Entry held by another app (1Password, Terminal with the option checked, a focused password field) blocks Fn+Space and Esc, while modifier-only hold-to-talk and double-press Fn keep working.
 
-Quoth (v0.1 for the checks, v1.0 for the onboarding UI): Microphone for capture, Input Monitoring for the listen-only tap, Accessibility for the synthetic Cmd+V and the AX API. See the permission matrix in section 7.
+Hush (v0.1 for the checks, v1.0 for the onboarding UI): Microphone for capture, Input Monitoring for the listen-only tap, Accessibility for the synthetic Cmd+V and the AX API. See the permission matrix in section 7.
 
 ### Settings categories
 
@@ -303,7 +303,7 @@ The Hub sidebar is Home, Insights, Dictionary, Snippets, Style, Transforms, Scra
 
 The menu bar icon menu contains: open the app, paste last transcript (with a preview, greyed out when empty), Shortcuts, Microphone, Languages, help, support, and feedback.
 
-Quoth (v0.2): one Settings window with tabs General, Hotkeys, Audio, Transcription, Cleanup, Dictionary, Snippets, Privacy. No account group.
+Hush (v0.2): one Settings window with tabs General, Hotkeys, Audio, Transcription, Cleanup, Dictionary, Snippets, Privacy. No account group.
 
 ### Shortcut validation rules
 
@@ -318,7 +318,7 @@ Quoth (v0.2): one Settings window with tabs General, Hotkeys, Audio, Transcripti
 - The app warns when the hands-free shortcut is a subset of the push-to-talk shortcut.
 - Bindings save immediately, are stored per device, and do not sync. Reset to default has no undo.
 
-Quoth (v0.2): the same rules and the same check order, as pure functions in QuothCore with unit tests.
+Hush (v0.2): the same rules and the same check order, as pure functions in HushCore with unit tests.
 
 ### Sounds
 
@@ -326,9 +326,9 @@ Quoth (v0.2): the same rules and the same check order, as pure functions in Quot
 - "Mute music while dictating" is off by default on Mac. It mutes the default output device on start and restores it on stop, only if audio was actually playing. If the user had already muted, it stays muted.
 - The actual sound design (pitch, duration, whether start and stop differ, any error sound) is not documented.
 
-Quoth (v0.2): short start and stop sounds with a toggle. Muting other audio is not scheduled.
+Hush (v0.2): short start and stop sounds with a toggle. Muting other audio is not scheduled.
 
-## 5. What reviewers praise and criticize, and what that means for Quoth
+## 5. What reviewers praise and criticize, and what that means for Hush
 
 ### Praise
 
@@ -355,9 +355,9 @@ Quoth (v0.2): short start and stop sounds with a toggle. Muting other audio is n
 
 ### What Hacker News asks of a local alternative
 
-A Show HN thread for an open-source alternative drew 277 points and 132 comments. Requests: flexible push-to-talk bindings, streaming text while speaking, LLM post-processing for names and technical terms, swappable models, fully offline operation, and latency under one second. Commenters warned that an open-source app that still calls cloud APIs by default is not private. One author reported local LLM cleanup taking 5 to 10 s against under 1 s on a hosted API, which is why Quoth treats the LLM stage as optional and keeps the default cleanup rule-based.
+A Show HN thread for an open-source alternative drew 277 points and 132 comments. Requests: flexible push-to-talk bindings, streaming text while speaking, LLM post-processing for names and technical terms, swappable models, fully offline operation, and latency under one second. Commenters warned that an open-source app that still calls cloud APIs by default is not private. One author reported local LLM cleanup taking 5 to 10 s against under 1 s on a hosted API, which is why Hush treats the LLM stage as optional and keeps the default cleanup rule-based.
 
-### Design commitments for Quoth
+### Design commitments for Hush
 
 These follow directly from the criticism above. They are commitments for the build, not shipped behavior.
 
@@ -377,7 +377,7 @@ These follow directly from the criticism above. They are commitments for the bui
 
 Star counts are the rounded values rendered on github.com on 2026-09-17. The GitHub API was rate-limited, so none are exact.
 
-| Project | Stars | License | Stack | Insertion technique | Lessons for Quoth |
+| Project | Stars | License | Stack | Insertion technique | Lessons for Hush |
 | --- | --- | --- | --- | --- | --- |
 | Handy (cjpais/Handy) | 31.8k | MIT | Tauri, Rust, React. Whisper GGML and Parakeet V3. Cross-platform | Clipboard plus Cmd+V through Enigo with pre and post delays. A beta mode publishes a pasteboard promise and restores the old clipboard only after the first read | The fixed-timer restore pastes the old clipboard under load. The read receipt can be triggered early by clipboard-sync helpers. Fn bindings never fire on non-Apple keyboards, so warn and offer a fallback |
 | FluidVoice (altic-dev/FluidVoice) | 11.6k | GPLv3 | Swift, SwiftUI, macOS 15+. Eight speech models | Clipboard paste is the default since March 2026, with transient and auto-generated pasteboard markers, Cmd+V posted to the target pid, restore after 500 ms. Unicode typing and AX splicing exist as fallbacks | Made paste the default over direct typing. Releasing an unrelated modifier re-armed a modifier-only hotkey. The tap was found disabled and a 30 s health check was too slow. A force-unwrap on a nil clipboard read crashed in terminals |
@@ -392,7 +392,7 @@ Star counts are the rounded values rendered on github.com on 2026-09-17. The Git
 | TypeWhisper (TypeWhisper/typewhisper-mac) | 1.8k | GPLv3 plus commercial | Swift, SwiftUI, macOS 14+. WhisperKit and many engines | Auto-paste | Per-app profiles, dictionary with auto-learn, local REST API. Shows the scope creep to avoid early |
 | Amical (amicalhq/amical) | 1.5k | MIT | Electron plus Swift helper. Whisper, Ollama | Not inspected | (medium) |
 | Muesli (Muesli-HQ/muesli) | 1.3k | MIT | Swift | Cmd+V paste | Modifier-key hotkeys including Fn (medium) |
-| MacParakeet (moona3k/macparakeet) | 653 | GPL-3.0 | Swift 6, Parakeet v3, macOS 14.2+ | Not inspected | Default hotkey is Fn hold with a separate hands-free shortcut, the same shape as Quoth (medium) |
+| MacParakeet (moona3k/macparakeet) | 653 | GPL-3.0 | Swift 6, Parakeet v3, macOS 14.2+ | Not inspected | Default hotkey is Fn hold with a separate hands-free shortcut, the same shape as Hush (medium) |
 
 Spokenly is sometimes listed as open source. Its own site says it is not, so its internals cannot be inspected.
 
@@ -408,8 +408,8 @@ Cross-cutting conclusions:
 ### WhisperKit: rename and API
 
 - The repository was renamed on 2026-05-01. `github.com/argmaxinc/WhisperKit` redirects to `github.com/argmaxinc/argmax-oss-swift`. The SwiftPM product is still named `WhisperKit`.
-- Latest release: v1.1.0 (2026-08-06). Quoth will pin `from: "1.1.0"` when the dependency is added by the v0.1 transcription issue, because earlier versions returned empty transcriptions when `promptTokens` were set, and the v0.2 dictionary will use prompt tokens.
-- The package uses swift-tools 5.10 and declares macOS 13, while the README requires macOS 14 and Xcode 16. This matches Quoth's macOS 14 minimum. Its only external dependency is swift-argument-parser.
+- Latest release: v1.1.0 (2026-08-06). Hush will pin `from: "1.1.0"` when the dependency is added by the v0.1 transcription issue, because earlier versions returned empty transcriptions when `promptTokens` were set, and the v0.2 dictionary will use prompt tokens.
+- The package uses swift-tools 5.10 and declares macOS 13, while the README requires macOS 14 and Xcode 16. This matches Hush's macOS 14 minimum. Its only external dependency is swift-argument-parser.
 - Transcription signature at v1.1.0:
 
   ```swift
@@ -431,7 +431,7 @@ Cross-cutting conclusions:
 
 ### Intel is unsupported by WhisperKit
 
-The maintainers state that Intel Macs are unsupported (M1 and newer only). Reported Intel failures are runtime crashes in the feature extractor and mel spectrogram. `Package.swift` has no architecture restriction, so an x86_64 build may compile, but this was not verified. Decision: Quoth builds universal, and on Intel the local backend reports itself unavailable. Intel users need a cloud backend (v0.3).
+The maintainers state that Intel Macs are unsupported (M1 and newer only). Reported Intel failures are runtime crashes in the feature extractor and mel spectrogram. `Package.swift` has no architecture restriction, so an x86_64 build may compile, but this was not verified. Decision: Hush builds universal, and on Intel the local backend reports itself unavailable. Intel users need a cloud backend (v0.3).
 
 ### Sparkle 2.10
 
@@ -439,7 +439,7 @@ The maintainers state that Intel Macs are unsupported (M1 and newer only). Repor
 - Required Info.plist keys: `SUFeedURL`, `SUPublicEDKey`, and an incrementing `CFBundleVersion`. Optional hardening: `SURequireSignedFeed`, `SUVerifyUpdateBeforeExtraction`.
 - `generate_appcast` accepts the private key on stdin with `--ed-key-file -`, which suits CI secrets. Archives should be created with `ditto -c -k --sequesterRsrc --keepParent`. Never codesign with `--deep`.
 - For an agent (LSUIElement) app, implement the gentle reminders delegate methods (`supportsGentleScheduledUpdateReminders` and related) so scheduled update alerts do not steal focus.
-- Quoth is not sandboxed (it posts events and uses the AX API), so none of the Sparkle XPC service keys are needed.
+- Hush is not sandboxed (it posts events and uses the AX API), so none of the Sparkle XPC service keys are needed.
 - Sparkle is added in the v1.0 milestone, not before.
 
 ### Fn detection and the permission matrix
@@ -464,7 +464,7 @@ Rules for Fn:
 
 ### Why the tap is listen-only
 
-An open, Apple-acknowledged bug (FB24619068, forum thread from about September 2026, medium) affects active session-level taps: if the user revokes the app's Accessibility permission while a `.defaultTap` is installed, all system input becomes unresponsive and a forced restart is needed. It is reported on macOS Sequoia, Tahoe, and the macOS 27 beta. A push-to-talk app never needs to swallow events, Wispr's own docs say keyboard shortcuts are never suppressed, and the stuck-modifier incident in section 5 shows what an active filter can do to other apps. Quoth therefore uses `.listenOnly`, accepts that the hotkey also reaches the frontmost app, and picks defaults (Fn, Ctrl+Opt) that are harmless when they do.
+An open, Apple-acknowledged bug (FB24619068, forum thread from about September 2026, medium) affects active session-level taps: if the user revokes the app's Accessibility permission while a `.defaultTap` is installed, all system input becomes unresponsive and a forced restart is needed. It is reported on macOS Sequoia, Tahoe, and the macOS 27 beta. A push-to-talk app never needs to swallow events, Wispr's own docs say keyboard shortcuts are never suppressed, and the stuck-modifier incident in section 5 shows what an active filter can do to other apps. Hush therefore uses `.listenOnly`, accepts that the hotkey also reaches the frontmost app, and picks defaults (Fn, Ctrl+Opt) that are harmless when they do.
 
 ### AX insertion fails silently, so paste is the workhorse
 
@@ -472,7 +472,7 @@ An open, Apple-acknowledged bug (FB24619068, forum thread from about September 2
 - Measured failure (medium, from another project's pull request): in a Chrome textarea the attribute reports settable, the set returns success, and the value is unchanged two seconds later. The same silent drop affects Chrome, Slack, VS Code, and other browser or Electron editors. Cmd+V landed in 37 ms in the same test. Terminals and custom-drawn editors also implement AX writes only partially.
 - Consequence for `InsertionStrategySelector`: never trust a success return. Either read the value back to verify, or route Chromium, Electron, and web views straight to paste by bundle id. v0.1 ships paste insertion. The AX path is added only with read-back verification.
 
-Paste fallback details that Quoth's `PasteInserter` must cover:
+Paste fallback details that Hush's `PasteInserter` must cover:
 
 1. Snapshot every pasteboard item as type and data pairs. Tolerate a nil read without crashing.
 2. Write the transcript as `.string`, plus empty data for `org.nspasteboard.TransientType` and `org.nspasteboard.AutoGeneratedType` so clipboard managers skip it. Wispr marks its text concealed for the same reason.
@@ -486,7 +486,7 @@ Paste fallback details that Quoth's `PasteInserter` must cover:
 
 ### Pasteboard privacy
 
-macOS 15.4 introduced a pasteboard privacy preview (medium). Programmatic reads of the general pasteboard that are not tied to a user paste trigger an alert, and there is a per-app "Paste from Other Apps" setting. Through macOS 26 it is opt-in with `defaults write <bundle id> EnablePasteboardPrivacyDeveloperPreview -bool yes`. The clipboard snapshot in step 1 above is exactly the kind of read it flags. Clipboard restore must therefore be optional, and the manual test plan should include a run with the flag enabled for `io.github.ryan-stoffel.quoth`.
+macOS 15.4 introduced a pasteboard privacy preview (medium). Programmatic reads of the general pasteboard that are not tied to a user paste trigger an alert, and there is a per-app "Paste from Other Apps" setting. Through macOS 26 it is opt-in with `defaults write <bundle id> EnablePasteboardPrivacyDeveloperPreview -bool yes`. The clipboard snapshot in step 1 above is exactly the kind of read it flags. Clipboard restore must therefore be optional, and the manual test plan should include a run with the flag enabled for `io.github.ryan-stoffel.hush`.
 
 ### SMAppService
 
@@ -504,28 +504,28 @@ For the overlay (`OverlayPanelController`, v0.1):
 
 ### XCUITest with agent apps
 
-- XCUITest cannot run from pure SwiftPM. It needs an Xcode project with an application target and a `bundle.ui-testing` target. Quoth keeps all logic in the Swift package and generates a thin project with XcodeGen (`project.yml`), which is why `Quoth.xcodeproj` is never committed.
+- XCUITest cannot run from pure SwiftPM. It needs an Xcode project with an application target and a `bundle.ui-testing` target. Hush keeps all logic in the Swift package and generates a thin project with XcodeGen (`project.yml`), which is why `Hush.xcodeproj` is never committed.
 - Status item clicks in LSUIElement apps are flaky (medium). The app never becomes frontmost, so when the current space is full screen the menu bar is hidden and the element is reported as not hittable. On macOS 26 third-party status items may also be rehosted by Control Center.
-- Mitigation: the skeleton already parses `-demoMode YES -demoScene <name>` (`DemoMode` in QuothCore) and the UI test harness passes those arguments. Opening the named scene directly is planned (`DemoScene`, arriving with the first window), so that the screenshot suite in `UITests/` never has to click the status item.
+- Mitigation: the skeleton already parses `-demoMode YES -demoScene <name>` (`DemoMode` in HushCore) and the UI test harness passes those arguments. Opening the named scene directly is planned (`DemoScene`, arriving with the first window), so that the screenshot suite in `UITests/` never has to click the status item.
 - The GitHub runner image grants Accessibility, PostEvent, Microphone, and ScreenCapture only to bash and the runner provisioner, with no Input Monitoring entries. The app under test has none of these permissions on CI. Demo mode therefore never touches the microphone, event taps, Accessibility, the Keychain, or the network. Real dictation is verified by hand with docs/MANUAL_TEST.md.
 
 ### GitHub runner images
 
 - `macos-latest` and `macos-26` are macOS 26 on arm64 with Xcode 26.6 as the default. `macos-15` defaults to Xcode 16.4. `macos-14` is deprecated and becomes unsupported on 2026-11-02.
 - Images are built with autologin and automation mode enabled without authentication, which removed the historical automation-mode timeouts in UI tests.
-- Quoth's CI uses `macos-26` runners with Xcode 26. Local builds need Xcode 16 or newer.
+- Hush's CI uses `macos-26` runners with Xcode 26. Local builds need Xcode 16 or newer.
 - Whether Core ML or Neural Engine inference works inside GitHub's macOS VMs is unverified. CI must not depend on real WhisperKit inference.
 
 ## 8. Deliberate differences from Wispr Flow
 
-| Area | Wispr Flow | Quoth |
+| Area | Wispr Flow | Hush |
 | --- | --- | --- |
 | Where speech is processed | Cloud only, internet required for every dictation | On-device by default with WhisperKit. Cloud backends are optional and arrive in v0.3 |
 | Source and license | Proprietary | Open source, MIT |
 | Account | Mandatory sign-in | No account. No sign-in step anywhere |
 | Pricing and limits | Weekly word cap on the free tier, subscription for unlimited use and Command Mode | No caps, no tiers, no plan gates |
 | Team features | Shared dictionary and snippets, usage dashboards, leaderboard, admin controls, SSO | None planned |
-| Notetaker | Meeting capture, summaries, cross-meeting Q and A, MCP connector | None planned. Quoth does dictation only |
+| Notetaker | Meeting capture, summaries, cross-meeting Q and A, MCP connector | None planned. Hush does dictation only |
 | Mobile and other platforms | iPhone, Android, Windows | macOS 14+ only |
 | Context sent with each dictation | App, surrounding text, on-screen text, screenshot (on by default) | Nothing is sent. No screenshots, no tree traversal, no URL reads |
 | Telemetry | Multiple analytics and error services (medium) | None |
@@ -606,7 +606,7 @@ Merged from all six research passes.
 
 ### Platform and tooling
 
-- Whether a listen-only tap restricted to `flagsChanged` still requires Input Monitoring on macOS 14, 15, and 26. Not tested. Quoth requests Input Monitoring anyway.
+- Whether a listen-only tap restricted to `flagsChanged` still requires Input Monitoring on macOS 14, 15, and 26. Not tested. Hush requests Input Monitoring anyway.
 - Whether `NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged)` delivers Fn changes without Accessibility on current macOS.
 - The default value of "Press Globe key to" on current Macs. The "set it to Do Nothing" advice comes from a third-party snippet, not a fetched help page.
 - Any way for a third-party app to suppress the system Fn or Globe action. None was found, and how Wispr handles it internally is undocumented.
@@ -620,15 +620,18 @@ Merged from all six research passes.
 
 ## 10. Naming
 
-Chosen name: Quoth, an archaic English word for "said". Repository `ryan-stoffel/quoth`, bundle id `io.github.ryan-stoffel.quoth`.
+Renamed on 2026-09-20: the project shipped its first pre-release as Quoth and is now called Hush. The checks below were made for the earlier name; "hush" was chosen by the maintainer knowing that a Safari nag blocker called Hush exists (oblador.github.io/hush, also a Homebrew cask named `hush`), so the bundle id `io.github.ryan-stoffel.hush` and the fully qualified cask name `ryan-stoffel/taps/hush` keep them apart.
+
+
+Chosen name: Hush, an archaic English word for "said". Repository `ryan-stoffel/hush`, bundle id `io.github.ryan-stoffel.hush`.
 
 Constraints: short, original, not built on another product's trademark (no wispr, whisper, or flow stems), and not an existing popular GitHub repository or Mac app.
 
 Checks run on 2026-09-17:
 
-- GitHub repository search for `quoth in:name`, sorted by stars: 88 results. The largest is erykwalder/quoth with 51 stars, a Go quoting library. Nothing in the dictation space.
-- Web search for "Quoth" with macOS, Mac App Store, and dictation: no Mac app found. The only product found is a 2011 word puzzle game on the Amazon Appstore for Android.
-- `ryan-stoffel/quoth` did not exist.
+- GitHub repository search for `hush in:name`, sorted by stars: 88 results. The largest is erykwalder/hush with 51 stars, a Go quoting library. Nothing in the dictation space.
+- Web search for "Hush" with macOS, Mac App Store, and dictation: no Mac app found. The only product found is a 2011 word puzzle game on the Amazon Appstore for Android.
+- `ryan-stoffel/hush` did not exist.
 - App Store, Homebrew, and trademark registries were not searched.
 
 Rejected candidates (top GitHub hit in parentheses):

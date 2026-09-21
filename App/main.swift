@@ -1,5 +1,5 @@
 import AppKit
-import QuothKit
+import HushKit
 
 let delegate = AppDelegate()
 let application = NSApplication.shared

@@ -1,4 +1,4 @@
-# Releasing Quoth
+# Releasing Hush
 
 This document is for maintainers. It describes how a release is cut, what `.github/workflows/release.yml` does, how code signing and notarization are set up, and how to recover from a bad release.
 
@@ -22,12 +22,12 @@ The job does the following, in order:
 1. Checks out the repository with full history.
 2. Reads the version from the tag. `v0.1.0` gives `VERSION=0.1.0`. If the version contains a hyphen, `PRERELEASE=true`.
 3. Detects optional secrets. `HAS_SIGNING` is true when both `DEVELOPER_ID_CERT_P12_BASE64` and `NOTARY_PASSWORD` are non-empty. `HAS_SPARKLE_KEY` is true when `SPARKLE_ED_PRIVATE_KEY` is non-empty.
-4. Installs XcodeGen if it is missing, runs `xcodegen generate`, and archives a universal Release build (`ARCHS="arm64 x86_64"`, `ONLY_ACTIVE_ARCH=NO`) with ad-hoc signing (`CODE_SIGN_IDENTITY=-`). The app is copied from the archive to `build/export/Quoth.app` and `lipo -archs` prints the slices to the log.
-5. If `HAS_SIGNING` is true: imports the Developer ID certificate into a temporary keychain, then runs `scripts/sign-and-notarize.sh build/export/Quoth.app App/Quoth.entitlements`, which re-signs, notarizes, staples, and runs a Gatekeeper assessment.
+4. Installs XcodeGen if it is missing, runs `xcodegen generate`, and archives a universal Release build (`ARCHS="arm64 x86_64"`, `ONLY_ACTIVE_ARCH=NO`) with ad-hoc signing (`CODE_SIGN_IDENTITY=-`). The app is copied from the archive to `build/export/Hush.app` and `lipo -archs` prints the slices to the log.
+5. If `HAS_SIGNING` is true: imports the Developer ID certificate into a temporary keychain, then runs `scripts/sign-and-notarize.sh build/export/Hush.app App/Hush.entitlements`, which re-signs, notarizes, staples, and runs a Gatekeeper assessment.
 6. If `HAS_SIGNING` is false: see [What the workflow does when secrets are missing](#what-the-workflow-does-when-secrets-are-missing).
-7. Zips the app with `ditto -c -k --sequesterRsrc --keepParent` to `build/Quoth-<version>.zip` and prints its SHA-256.
+7. Zips the app with `ditto -c -k --sequesterRsrc --keepParent` to `build/Hush-<version>.zip` and prints its SHA-256.
 8. Builds the release notes (see [CHANGELOG handling](#changelog-handling)).
-9. Creates the GitHub release with `gh release create`, titled `Quoth <version>`, with the zip attached. `--verify-tag` is passed, and `--prerelease` is added for pre-release tags.
+9. Creates the GitHub release with `gh release create`, titled `Hush <version>`, with the zip attached. `--verify-tag` is passed, and `--prerelease` is added for pre-release tags.
 10. If `HAS_SPARKLE_KEY` is true: updates `appcast.xml` on the `gh-pages` branch (see [Sparkle](#sparkle)).
 11. If the tag is a final release: opens the CHANGELOG issue and pull request against `develop`.
 
@@ -37,7 +37,7 @@ The workflow does not check that the tag points at a commit on `main`. That is t
 
 ## Versioning
 
-Quoth follows [Semantic Versioning](https://semver.org). Tags are `vMAJOR.MINOR.PATCH`, with an optional pre-release suffix after a hyphen (`v0.1.0-beta.1`, `v1.0.0-rc.2`).
+Hush follows [Semantic Versioning](https://semver.org). Tags are `vMAJOR.MINOR.PATCH`, with an optional pre-release suffix after a hyphen (`v0.1.0-beta.1`, `v1.0.0-rc.2`).
 
 | Build setting | Info.plist key | Source in the release workflow |
 | --- | --- | --- |
@@ -69,14 +69,14 @@ You need an Apple Developer Program membership (paid). A free Apple ID cannot cr
    ```
 
    The output has a line like `1) 0123456789ABCDEF0123456789ABCDEF01234567 "Developer ID Application: Your Name (ABCDE12345)"`. The quoted string is `DEVELOPER_ID_IDENTITY`. The ten character code in parentheses is the team id. The team id is also shown at <https://developer.apple.com/account> under Membership details.
-5. Create an app-specific password for `notarytool`. Sign in at <https://appleid.apple.com>, open Sign-In and Security, App-Specific Passwords, and generate one named something like `quoth-notarytool`. It has the form `abcd-efgh-ijkl-mnop`. This is `NOTARY_PASSWORD`. It is not your Apple ID password.
+5. Create an app-specific password for `notarytool`. Sign in at <https://appleid.apple.com>, open Sign-In and Security, App-Specific Passwords, and generate one named something like `hush-notarytool`. It has the form `abcd-efgh-ijkl-mnop`. This is `NOTARY_PASSWORD`. It is not your Apple ID password.
 6. Store the six signing secrets as described in the next section, then delete `cert.p12` from disk and clear the clipboard.
 
 Developer ID Application certificates are valid for five years. When the certificate is renewed, export the new one and replace `DEVELOPER_ID_CERT_P12_BASE64`, `DEVELOPER_ID_CERT_PASSWORD`, and, if the name changed, `DEVELOPER_ID_IDENTITY`.
 
 ## GitHub secrets
 
-All secrets are repository Actions secrets on `ryan-stoffel/quoth`. All are optional: the workflow publishes an ad-hoc signed build without them.
+All secrets are repository Actions secrets on `ryan-stoffel/hush`. All are optional: the workflow publishes an ad-hoc signed build without them.
 
 | Secret | What it is | How to produce it |
 | --- | --- | --- |
@@ -91,16 +91,16 @@ All secrets are repository Actions secrets on `ryan-stoffel/quoth`. All are opti
 Set them with the GitHub CLI. Commands that read from a pipe or a file keep the value out of shell history. Commands without input prompt for the value.
 
 ```sh
-base64 -i cert.p12 | gh secret set DEVELOPER_ID_CERT_P12_BASE64 --repo ryan-stoffel/quoth
-gh secret set DEVELOPER_ID_CERT_PASSWORD --repo ryan-stoffel/quoth
-gh secret set DEVELOPER_ID_IDENTITY --repo ryan-stoffel/quoth --body "Developer ID Application: Your Name (ABCDE12345)"
-gh secret set NOTARY_APPLE_ID --repo ryan-stoffel/quoth
-gh secret set NOTARY_TEAM_ID --repo ryan-stoffel/quoth --body "ABCDE12345"
-gh secret set NOTARY_PASSWORD --repo ryan-stoffel/quoth
-gh secret set SPARKLE_ED_PRIVATE_KEY --repo ryan-stoffel/quoth < sparkle_private_key.txt
+base64 -i cert.p12 | gh secret set DEVELOPER_ID_CERT_P12_BASE64 --repo ryan-stoffel/hush
+gh secret set DEVELOPER_ID_CERT_PASSWORD --repo ryan-stoffel/hush
+gh secret set DEVELOPER_ID_IDENTITY --repo ryan-stoffel/hush --body "Developer ID Application: Your Name (ABCDE12345)"
+gh secret set NOTARY_APPLE_ID --repo ryan-stoffel/hush
+gh secret set NOTARY_TEAM_ID --repo ryan-stoffel/hush --body "ABCDE12345"
+gh secret set NOTARY_PASSWORD --repo ryan-stoffel/hush
+gh secret set SPARKLE_ED_PRIVATE_KEY --repo ryan-stoffel/hush < sparkle_private_key.txt
 ```
 
-Check the result with `gh secret list --repo ryan-stoffel/quoth`.
+Check the result with `gh secret list --repo ryan-stoffel/hush`.
 
 Set all six signing secrets together. The workflow decides whether to sign by looking only at `DEVELOPER_ID_CERT_P12_BASE64` and `NOTARY_PASSWORD`. If those two exist and any of `DEVELOPER_ID_CERT_PASSWORD`, `DEVELOPER_ID_IDENTITY`, `NOTARY_APPLE_ID`, or `NOTARY_TEAM_ID` is missing, the certificate import or `scripts/sign-and-notarize.sh` fails and the job stops before a release is created.
 
@@ -110,7 +110,7 @@ How the workflow uses the certificate: it decodes the `.p12` into `$RUNNER_TEMP`
 
 The app target enables the hardened runtime (`ENABLE_HARDENED_RUNTIME: YES` in `project.yml`), and `scripts/sign-and-notarize.sh` signs everything with `--options runtime` and a secure timestamp (`--timestamp`). Notarization requires both.
 
-`App/Quoth.entitlements` contains exactly one entitlement:
+`App/Hush.entitlements` contains exactly one entitlement:
 
 | Entitlement | Why |
 | --- | --- |
@@ -118,7 +118,7 @@ The app target enables the hardened runtime (`ENABLE_HARDENED_RUNTIME: YES` in `
 
 The entitlements file is applied to the main app bundle only. Nested frameworks and helpers are signed without entitlements.
 
-Quoth is not sandboxed, and `com.apple.security.app-sandbox` must not be added. The planned dictation pipeline controls other apps through the Accessibility API (`AXUIElement`) and posts a synthetic Cmd+V to the frontmost app, and sandboxed apps cannot be granted Accessibility access to do this. The global hotkey also relies on a `CGEventTap`. For that reason Quoth is not sandboxed and ships with Developer ID outside the Mac App Store, which requires the sandbox.
+Hush is not sandboxed, and `com.apple.security.app-sandbox` must not be added. The planned dictation pipeline controls other apps through the Accessibility API (`AXUIElement`) and posts a synthetic Cmd+V to the frontmost app, and sandboxed apps cannot be granted Accessibility access to do this. The global hotkey also relies on a `CGEventTap`. For that reason Hush is not sandboxed and ships with Developer ID outside the Mac App Store, which requires the sandbox.
 
 No hardened runtime exceptions (`allow-jit`, `disable-library-validation`, and so on) are present, and none should be added without an issue that explains the need. Entitlements and signing settings are on the list of things contributors and agents must not change.
 
@@ -144,7 +144,7 @@ Use this to test the signing setup before trusting CI, or to produce a release w
 Build the universal archive. For a build that will be published, set `BUILD_NUMBER` to exactly one more than the `CFBundleVersion` of the last published release, not an arbitrary higher number. CI takes its build number from the run number of `release.yml`, so the next CI release must have a run number above the hand-built number, or Sparkle will not offer it to users on the hand-built copy. Check the latest run number first:
 
 ```sh
-gh run list --repo ryan-stoffel/quoth --workflow release.yml --limit 1 --json number
+gh run list --repo ryan-stoffel/hush --workflow release.yml --limit 1 --json number
 ```
 
 The next CI run gets that number plus one. If that would not be higher than your hand-built number, push throwaway pre-release tags until the run counter has passed it (before v1.0 only, because after v1.0 a pre-release tag reaches the appcast). Once Sparkle ships, prefer fixing CI over publishing by hand. For a local signing test that is never published, any number works.
@@ -155,11 +155,11 @@ BUILD_NUMBER=8   # placeholder: last published CFBundleVersion (7 in this exampl
 
 scripts/bootstrap.sh
 xcodebuild archive \
-  -project Quoth.xcodeproj \
-  -scheme Quoth \
+  -project Hush.xcodeproj \
+  -scheme Hush \
   -configuration Release \
   -destination "generic/platform=macOS" \
-  -archivePath build/Quoth.xcarchive \
+  -archivePath build/Hush.xcarchive \
   -derivedDataPath DerivedData \
   ARCHS="arm64 x86_64" \
   ONLY_ACTIVE_ARCH=NO \
@@ -167,8 +167,8 @@ xcodebuild archive \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   CODE_SIGN_IDENTITY=-
 mkdir -p build/export
-cp -R build/Quoth.xcarchive/Products/Applications/Quoth.app build/export/
-lipo -archs build/export/Quoth.app/Contents/MacOS/Quoth
+cp -R build/Hush.xcarchive/Products/Applications/Hush.app build/export/
+lipo -archs build/export/Hush.app/Contents/MacOS/Hush
 ```
 
 `lipo` must print `x86_64 arm64`.
@@ -180,13 +180,13 @@ export DEVELOPER_ID_IDENTITY="Developer ID Application: Your Name (ABCDE12345)"
 export NOTARY_APPLE_ID="you@example.com"
 export NOTARY_TEAM_ID="ABCDE12345"
 read -rs NOTARY_PASSWORD && export NOTARY_PASSWORD
-scripts/sign-and-notarize.sh build/export/Quoth.app App/Quoth.entitlements
+scripts/sign-and-notarize.sh build/export/Hush.app App/Hush.entitlements
 ```
 
 The same steps, one command at a time, with the four variables above still exported:
 
 ```sh
-APP=build/export/Quoth.app
+APP=build/export/Hush.app
 
 # 1. Nested code, inside out. Skip this block while the app has no Contents/Frameworks directory.
 find "$APP/Contents/Frameworks" -type d \( -name "*.xpc" -o -name "*.app" \) -print0 |
@@ -198,7 +198,7 @@ find "$APP/Contents/Frameworks" -maxdepth 1 \( -name "*.framework" -o -name "*.d
 
 # 2. The app itself, with entitlements.
 codesign --force --timestamp --options runtime --sign "$DEVELOPER_ID_IDENTITY" \
-  --entitlements App/Quoth.entitlements "$APP"
+  --entitlements App/Hush.entitlements "$APP"
 
 # 3. Verify the signature.
 codesign --verify --deep --strict --verbose=2 "$APP"
@@ -219,8 +219,8 @@ xcrun stapler validate "$APP"
 spctl --assess --type execute --verbose=2 "$APP"
 
 # 7. Zip the stapled app for distribution. This is the file that gets uploaded.
-ditto -c -k --sequesterRsrc --keepParent "$APP" "build/Quoth-$VERSION.zip"
-shasum -a 256 "build/Quoth-$VERSION.zip"
+ditto -c -k --sequesterRsrc --keepParent "$APP" "build/Hush-$VERSION.zip"
+shasum -a 256 "build/Hush-$VERSION.zip"
 ```
 
 Notes:
@@ -230,7 +230,7 @@ Notes:
 - `spctl` must print `accepted` and `source=Notarized Developer ID`.
 - If notarization returns `Invalid`, read the log: `xcrun notarytool log <submission-id> --apple-id "$NOTARY_APPLE_ID" --team-id "$NOTARY_TEAM_ID" --password "$NOTARY_PASSWORD"`. The usual causes are an unsigned nested binary, a missing secure timestamp, or the hardened runtime not being enabled on a binary.
 
-To publish a hand-built release, push the tag only if you want CI to run as well. Otherwise create the release from the existing tag with `gh release create vX.Y.Z build/Quoth-X.Y.Z.zip --title "Quoth X.Y.Z" --notes-file notes.md --verify-tag`.
+To publish a hand-built release, push the tag only if you want CI to run as well. Otherwise create the release from the existing tag with `gh release create vX.Y.Z build/Hush-X.Y.Z.zip --title "Hush X.Y.Z" --notes-file notes.md --verify-tag`.
 
 ## Sparkle
 
@@ -244,7 +244,7 @@ Sparkle is planned for the v1.0 milestone and is not a dependency yet (Sparkle 2
 
    ```xml
    <key>SUFeedURL</key>
-   <string>https://ryan-stoffel.github.io/quoth/appcast.xml</string>
+   <string>https://ryan-stoffel.github.io/hush/appcast.xml</string>
    <key>SUPublicEDKey</key>
    <string>BASE64_PUBLIC_KEY_FROM_GENERATE_KEYS</string>
    ```
@@ -253,7 +253,7 @@ Sparkle is planned for the v1.0 milestone and is not a dependency yet (Sparkle 2
 
    ```sh
    ./bin/generate_keys -x sparkle_private_key.txt
-   gh secret set SPARKLE_ED_PRIVATE_KEY --repo ryan-stoffel/quoth < sparkle_private_key.txt
+   gh secret set SPARKLE_ED_PRIVATE_KEY --repo ryan-stoffel/hush < sparkle_private_key.txt
    rm sparkle_private_key.txt
    ```
 
@@ -270,8 +270,8 @@ When `SPARKLE_ED_PRIVATE_KEY` is set, the "Update Sparkle appcast on gh-pages" s
 
    ```sh
    echo "$SPARKLE_ED_PRIVATE_KEY" | generate_appcast --ed-key-file - \
-     --download-url-prefix "https://github.com/ryan-stoffel/quoth/releases/download/vX.Y.Z/" \
-     --link "https://github.com/ryan-stoffel/quoth" \
+     --download-url-prefix "https://github.com/ryan-stoffel/hush/releases/download/vX.Y.Z/" \
+     --link "https://github.com/ryan-stoffel/hush" \
      updates
    ```
 
@@ -284,11 +284,11 @@ The step runs for pre-release tags too. There is no beta channel configured, so 
 
 ### GitHub Pages
 
-After the first run creates the branch, enable Pages: repository Settings, Pages, Source "Deploy from a branch", branch `gh-pages`, folder `/ (root)`. Then check that <https://ryan-stoffel.github.io/quoth/appcast.xml> returns the feed. Pages can take a minute to publish after each push.
+After the first run creates the branch, enable Pages: repository Settings, Pages, Source "Deploy from a branch", branch `gh-pages`, folder `/ (root)`. Then check that <https://ryan-stoffel.github.io/hush/appcast.xml> returns the feed. Pages can take a minute to publish after each push.
 
 ### Gentle reminders for a Dock-less app
 
-Quoth is an agent app (`LSUIElement` is true): no Dock icon and usually no open window. Sparkle's standard scheduled update alert can open behind other apps, or take focus while the user is typing, and the user has no Dock icon to find it again. Sparkle 2 has an API for this case, called gentle scheduled update reminders. The v1.0 updater work must:
+Hush is an agent app (`LSUIElement` is true): no Dock icon and usually no open window. Sparkle's standard scheduled update alert can open behind other apps, or take focus while the user is typing, and the user has no Dock icon to find it again. Sparkle 2 has an API for this case, called gentle scheduled update reminders. The v1.0 updater work must:
 
 - Create the `SPUStandardUpdaterController` with a user driver delegate (`SPUStandardUserDriverDelegate`).
 - Return `true` from `supportsGentleScheduledUpdateReminders`.
@@ -316,7 +316,7 @@ So there are two ways to work:
 For final releases only (`PRERELEASE=false`), the last step:
 
 1. Checks out `origin/develop`.
-2. Runs `scripts/changelog_release.py cut --version <version> --date <UTC date> --repo ryan-stoffel/quoth --fallback-notes <generated notes>`. The script moves everything under `## [Unreleased]` into a new `## [<version>] - <date>` section, leaves an empty Unreleased section, and rewrites the link references: `[Unreleased]` compares `v<version>...HEAD`, and `[<version>]` compares the previous version tag to the new one, or links to the release tag page when there is no previous version. If Unreleased is empty it uses the GitHub generated notes, and if those are empty too it writes "Maintenance release." If the file already has a section for the version, it changes nothing.
+2. Runs `scripts/changelog_release.py cut --version <version> --date <UTC date> --repo ryan-stoffel/hush --fallback-notes <generated notes>`. The script moves everything under `## [Unreleased]` into a new `## [<version>] - <date>` section, leaves an empty Unreleased section, and rewrites the link references: `[Unreleased]` compares `v<version>...HEAD`, and `[<version>]` compares the previous version tag to the new one, or links to the release tag page when there is no previous version. If Unreleased is empty it uses the GitHub generated notes, and if those are empty too it writes "Maintenance release." If the file already has a section for the version, it changes nothing.
 3. If `CHANGELOG.md` is unchanged, logs that and exits successfully.
 4. Otherwise opens an issue titled `chore(release): record <version> in CHANGELOG` with the labels `chore` and `release`, creates the branch `chore/gh-issue-<n>-changelog-<version>` (dots in the version become hyphens, for example `chore/gh-issue-57-changelog-0-1-0`, so the name passes the branch name check), commits as `github-actions[bot]`, pushes, and opens a pull request into `develop` titled `chore(release): record <version> in changelog`. The body contains `Closes #<n>`, a `## Before and After` section that says `No UI change`, and the screenshot markers, so it satisfies the pull request rules.
 
@@ -347,8 +347,8 @@ Only the `branch-name` check has a special case for `develop` into `main` (it ac
 - Keep the `## Before and After` section from `.github/PULL_REQUEST_TEMPLATE.md` with the `<!-- screenshots:start -->` and `<!-- screenshots:end -->` markers. The `screenshots` job compares `main` with `develop` and fills in the table, which doubles as a visual summary of the release. Write `No UI change` only if that is true.
 
 ```sh
-gh issue create --repo ryan-stoffel/quoth --title "chore(release): release X.Y.Z" --label chore --label release --milestone "vX.Y"
-gh pr create --repo ryan-stoffel/quoth --base main --head develop --title "chore(release): release X.Y.Z"
+gh issue create --repo ryan-stoffel/hush --title "chore(release): release X.Y.Z" --label chore --label release --milestone "vX.Y"
+gh pr create --repo ryan-stoffel/hush --base main --head develop --title "chore(release): release X.Y.Z"
 ```
 
 `gh pr create` without `--body` opens an editor with the template. Fill in `Closes #<n>` and leave the markers alone.
@@ -358,27 +358,27 @@ gh pr create --repo ryan-stoffel/quoth --base main --head develop --title "chore
 ```sh
 git checkout main
 git pull --ff-only origin main
-git tag -a vX.Y.Z -m "Quoth X.Y.Z"
+git tag -a vX.Y.Z -m "Hush X.Y.Z"
 git push origin vX.Y.Z
 ```
 
 ### After tagging
 
-- [ ] Watch the run: `gh run watch --repo ryan-stoffel/quoth` or the Actions tab. Check the annotations. A "Signing secrets are not configured" or "appcast was not updated" notice on a release that was meant to be signed means a secret is missing.
+- [ ] Watch the run: `gh run watch --repo ryan-stoffel/hush` or the Actions tab. Check the annotations. A "Signing secrets are not configured" or "appcast was not updated" notice on a release that was meant to be signed means a secret is missing.
 - [ ] In the log of the archive step, confirm `lipo` printed both `x86_64` and `arm64`.
 - [ ] Download the zip from the release page with a browser, so the file is quarantined the way a user's copy is. Unzip it and run:
 
   ```sh
-  spctl --assess --type execute --verbose=2 Quoth.app
-  xcrun stapler validate Quoth.app
-  codesign --verify --deep --strict --verbose=2 Quoth.app
-  codesign -d --entitlements - Quoth.app
+  spctl --assess --type execute --verbose=2 Hush.app
+  xcrun stapler validate Hush.app
+  codesign --verify --deep --strict --verbose=2 Hush.app
+  codesign -d --entitlements - Hush.app
   ```
 
   - Signed releases (signing secrets configured): expect `accepted` with `source=Notarized Developer ID`, a valid stapled ticket, and only the `audio-input` entitlement.
   - Ad-hoc releases (no signing secrets, which is every release until the secrets are set): expect `spctl` to print `rejected` and `stapler validate` to fail. That is by design, not a broken release. Confirm the release notes end with the Gatekeeper note, confirm `codesign -d --entitlements -` shows only `audio-input`, and confirm `codesign --verify` still passes.
-- [ ] Launch the downloaded app on a clean macOS user account (no prior permissions, no prior settings). A signed release must open without a Gatekeeper warning beyond the standard "downloaded from the internet" prompt. An ad-hoc release is blocked on first launch: allow it in System Settings, Privacy and Security, then launch again. Check the version: `defaults read "$PWD/Quoth.app/Contents/Info" CFBundleShortVersionString` and `CFBundleVersion`.
-- [ ] Verify the appcast (v1.0 and later): `curl -fsSL https://ryan-stoffel.github.io/quoth/appcast.xml`. The newest item must have the new `sparkle:version` (the run number), the right `sparkle:shortVersionString`, an `sparkle:edSignature`, and an enclosure URL under `https://github.com/ryan-stoffel/quoth/releases/download/vX.Y.Z/` that downloads. Then run "Check for Updates" from an installed copy of the previous release.
+- [ ] Launch the downloaded app on a clean macOS user account (no prior permissions, no prior settings). A signed release must open without a Gatekeeper warning beyond the standard "downloaded from the internet" prompt. An ad-hoc release is blocked on first launch: allow it in System Settings, Privacy and Security, then launch again. Check the version: `defaults read "$PWD/Hush.app/Contents/Info" CFBundleShortVersionString` and `CFBundleVersion`.
+- [ ] Verify the appcast (v1.0 and later): `curl -fsSL https://ryan-stoffel.github.io/hush/appcast.xml`. The newest item must have the new `sparkle:version` (the run number), the right `sparkle:shortVersionString`, an `sparkle:edSignature`, and an enclosure URL under `https://github.com/ryan-stoffel/hush/releases/download/vX.Y.Z/` that downloads. Then run "Check for Updates" from an installed copy of the previous release.
 - [ ] Final releases: close and reopen the CHANGELOG pull request so CI runs, review it, squash merge it.
 - [ ] Close the milestone.
 
@@ -390,7 +390,7 @@ Never move or reuse a published tag. Users, the appcast, and the CHANGELOG compa
 
 If a release must stop spreading before the fix is ready:
 
-1. Demote it on GitHub so it is no longer "Latest": `gh release edit vX.Y.Z --prerelease --repo ryan-stoffel/quoth`, and add a warning at the top of the notes. If the build is harmful, delete the release and keep the tag: `gh release delete vX.Y.Z --yes --repo ryan-stoffel/quoth`.
+1. Demote it on GitHub so it is no longer "Latest": `gh release edit vX.Y.Z --prerelease --repo ryan-stoffel/hush`, and add a warning at the top of the notes. If the build is harmful, delete the release and keep the tag: `gh release delete vX.Y.Z --yes --repo ryan-stoffel/hush`.
 2. If the appcast already lists the build (v1.0 and later), remove its `<item>` from `appcast.xml` on `gh-pages` and push. This is the one case where a maintainer edits `gh-pages` by hand. Do it before deleting the release asset, otherwise installed copies are offered an update whose download fails. Removing the item stops new offers. It does not affect copies that already updated.
 3. Tag the fixed patch release as soon as it is ready.
 

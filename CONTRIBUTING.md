@@ -1,12 +1,12 @@
-# Contributing to Quoth
+# Contributing to Hush
 
-Quoth is an open-source macOS menu bar app for voice dictation. This document covers everything you need to land a change: setup, branch and commit rules, what CI checks, and how to test.
+Hush is an open-source macOS menu bar app for voice dictation. This document covers everything you need to land a change: setup, branch and commit rules, what CI checks, and how to test.
 
 Project status as of 2026-09-17: only the skeleton is merged. That means the menu bar agent app shell, demo mode argument parsing, the UI test harness, and CI. The v0.1 features (menu bar, hotkey, capture, local transcription, paste insertion) are in progress. Where this document describes something that is planned rather than merged, it says so and names the milestone.
 
 ## Ground rules
 
-- **Issue first.** Every change starts from a GitHub issue. If there is no issue for what you want to do, open one and wait for the maintainer to confirm the direction before you write code. Questions and rough ideas go to [Discussions](https://github.com/ryan-stoffel/quoth/discussions). Blank issues are disabled, so use the feature or bug template.
+- **Issue first.** Every change starts from a GitHub issue. If there is no issue for what you want to do, open one and wait for the maintainer to confirm the direction before you write code. Questions and rough ideas go to [Discussions](https://github.com/ryan-stoffel/hush/discussions). Blank issues are disabled, so use the feature or bug template.
 - **One issue per PR.** A pull request closes exactly one issue. If you find a second problem while working, open a second issue.
 - **Privacy rule.** Nothing leaves the machine unless the user picks a cloud backend. With local backends selected the app makes no network requests other than the one-time model download from Hugging Face by WhisperKit and the Sparkle update check (which can be disabled). API keys live only in the Keychain. Audio is never written to disk. History is stored locally and can be cleared or disabled. A PR that breaks this rule will not be merged, whatever else it does. That includes analytics, crash reporters, remote logging, and debug code that writes audio to a file.
 - **No new dependencies without approval.** `Package.swift` has no third-party dependencies today. Two are pre-approved: WhisperKit (added by the v0.1 transcription issue) and Sparkle (added in the v1.0 milestone, not before). Anything else needs its own issue and maintainer sign-off before the PR is opened. Every entry in `dependencies` carries a comment that says what it is for and why the SDK cannot do the job.
@@ -33,16 +33,16 @@ The script installs `xcodegen`, `swiftformat`, and `swiftlint` with Homebrew if 
 brew install xcodegen swiftformat swiftlint
 ```
 
-`Quoth.xcodeproj` is generated from `project.yml` and is not committed. `.gitignore` excludes it. Regenerate it whenever you pull, switch branches, add or remove files under `App/` or `UITests/`, or edit `project.yml`:
+`Hush.xcodeproj` is generated from `project.yml` and is not committed. `.gitignore` excludes it. Regenerate it whenever you pull, switch branches, add or remove files under `App/` or `UITests/`, or edit `project.yml`:
 
 ```sh
 xcodegen generate
 ```
 
-Then open `Quoth.xcodeproj` and run the `Quoth` scheme, or build headlessly:
+Then open `Hush.xcodeproj` and run the `Hush` scheme, or build headlessly:
 
 ```sh
-xcodebuild -project Quoth.xcodeproj -scheme Quoth -destination 'platform=macOS' build
+xcodebuild -project Hush.xcodeproj -scheme Hush -destination 'platform=macOS' build
 ```
 
 Project settings changes go in `project.yml`, never in the Xcode project editor, because the generated project is thrown away. The library targets under `Sources/` are defined in `Package.swift` and the Xcode project consumes them as a local package, so adding a Swift file under `Sources/` or `Tests/` needs no regeneration.
@@ -55,12 +55,12 @@ The app is ad-hoc signed for local builds (`CODE_SIGN_IDENTITY` is `-`). You do 
 
 ```
 Package.swift            SwiftPM manifest. Library targets and unit tests.
-project.yml              XcodeGen spec. Generates Quoth.xcodeproj with the app target and the UI test target.
-App/                     App target sources only: main.swift, Info.plist, Quoth.entitlements, and later Assets.xcassets.
-Sources/QuothCore/       Pure Swift logic. Foundation only. No AppKit, no SwiftUI, no network. Fully unit tested.
-Sources/QuothKit/        Platform layer: AppKit, SwiftUI, AVFoundation, Accessibility. App delegate, coordinators, windows.
-Tests/QuothCoreTests/    Unit tests for Core.
-Tests/QuothKitTests/     Unit tests for Kit pieces that can run headlessly.
+project.yml              XcodeGen spec. Generates Hush.xcodeproj with the app target and the UI test target.
+App/                     App target sources only: main.swift, Info.plist, Hush.entitlements, and later Assets.xcassets.
+Sources/HushCore/       Pure Swift logic. Foundation only. No AppKit, no SwiftUI, no network. Fully unit tested.
+Sources/HushKit/        Platform layer: AppKit, SwiftUI, AVFoundation, Accessibility. App delegate, coordinators, windows.
+Tests/HushCoreTests/    Unit tests for Core.
+Tests/HushKitTests/     Unit tests for Kit pieces that can run headlessly.
 UITests/                 XCUITest screenshot suite. Launches the app in demo mode.
 scripts/                 bootstrap, lint, test, screenshot capture, PR checks, release tooling.
 docs/                    ARCHITECTURE.md, RESEARCH.md, RELEASING.md, MANUAL_TEST.md.
@@ -108,7 +108,7 @@ gh-issue-12-fn-key                    no type prefix
 The number is the issue the PR closes. Start the branch from an up-to-date `develop`:
 
 ```sh
-git remote add upstream https://github.com/ryan-stoffel/quoth.git   # once per checkout
+git remote add upstream https://github.com/ryan-stoffel/hush.git   # once per checkout
 git fetch upstream
 git switch -c feature/gh-issue-12-fn-key-push-to-talk --no-track upstream/develop
 git push -u origin feature/gh-issue-12-fn-key-push-to-talk
@@ -199,7 +199,7 @@ Runs on every pull request and on pushes to `develop` and `main`. A new push to 
 | --- | --- | --- |
 | `lint` | Installs SwiftFormat and SwiftLint if missing, then runs `scripts/lint.sh`, which runs `swiftformat --lint` and `swiftlint lint --strict` over `Package.swift`, `App`, `Sources`, `Tests`, and `UITests`. | Any file SwiftFormat would change. Any SwiftLint violation, because `--strict` turns warnings into errors. |
 | `unit-tests` | Prints the toolchain versions, runs `swift build --build-tests`, then `swift test --skip-build`. | A compile error in any library or test target, or a failing unit test. |
-| `ui-tests` | Installs XcodeGen, runs `xcodegen generate`, builds the `Quoth` scheme headlessly with `xcodebuild build`, then runs `scripts/test.sh ui`, which runs the `QuothUITests` bundle and writes `build/ui-tests.xcresult`. | An invalid `project.yml`, a build error in the app or UI test target, or a failing UI test. For the screenshot suite that usually means a scene did not appear within 15 seconds. |
+| `ui-tests` | Installs XcodeGen, runs `xcodegen generate`, builds the `Hush` scheme headlessly with `xcodebuild build`, then runs `scripts/test.sh ui`, which runs the `HushUITests` bundle and writes `build/ui-tests.xcresult`. | An invalid `project.yml`, a build error in the app or UI test target, or a failing UI test. For the screenshot suite that usually means a scene did not appear within 15 seconds. |
 
 When `ui-tests` fails, the result bundle is uploaded as the `ui-tests-xcresult` artifact and kept for 7 days. Download it and open it in Xcode to see the failure and its screenshots.
 
@@ -261,7 +261,7 @@ For example `pr-64/before/settings-general.png` and `pr-64/after/settings-genera
 Image URLs in the table are pinned to the commit on the `screenshots` branch that the run just pushed, not to the branch name:
 
 ```
-https://raw.githubusercontent.com/ryan-stoffel/quoth/<screenshots-commit-sha>/pr-<number>/after/<scene>.png
+https://raw.githubusercontent.com/ryan-stoffel/hush/<screenshots-commit-sha>/pr-<number>/after/<scene>.png
 ```
 
 Pinning matters for two reasons. The folder for a PR is replaced on every push, so a branch URL would change under the reader. And a commit URL is immutable, so browsers and GitHub's image proxy can never serve a stale image for it. The table in a merged PR keeps showing exactly what was reviewed.
@@ -304,9 +304,9 @@ scripts/capture-screenshots.sh . /tmp/shots
 Things to know about the UI tests:
 
 - They need a logged-in GUI session. XCUITest launches the real app and drives it through the window server, so they do not work over plain SSH or on a machine sitting at the login window.
-- They take over the screen briefly. The test runner launches and terminates Quoth once per test and windows appear and disappear. Do not type or click while they run, because stray input can land in the app under test or steal focus from it.
+- They take over the screen briefly. The test runner launches and terminates Hush once per test and windows appear and disappear. Do not type or click while they run, because stray input can land in the app under test or steal focus from it.
 - The first run asks macOS for permission to let Xcode automation control the computer. You will see a prompt to enable UI automation (it may ask for your password), and possibly an Accessibility prompt for Xcode's test runner. Approve it once. Until you do, the tests fail at launch.
-- They never need microphone, Accessibility, or Input Monitoring permission for Quoth itself, because the app runs in demo mode.
+- They never need microphone, Accessibility, or Input Monitoring permission for Hush itself, because the app runs in demo mode.
 
 The unit tests have no such requirements. `swift test` runs anywhere.
 
@@ -314,16 +314,16 @@ The unit tests have no such requirements. `swift test` runs anywhere.
 
 The app accepts launch arguments `-demoMode YES -demoScene <name>`. In demo mode it never touches the microphone, event taps, Accessibility, the Keychain, or the network, uses seeded in-memory data with fixed dates, and opens the named scene immediately. Scene names equal screenshot file names.
 
-What is merged today: `DemoMode` in `Sources/QuothCore/DemoMode.swift` parses the two arguments. `-demoMode` accepts `YES`, `true`, or `1` in any letter case. `-demoScene` is ignored unless demo mode is on. `AppDelegate` reads the parsed value at launch. `UITests/ScreenshotHarness.swift` provides the `ScreenshotTestCase` base class, and the only test so far, `testLaunchesInDemoModeWithoutWindows`, checks that the agent app launches in demo mode and opens no window. No scenes exist yet. They arrive with the windows they show.
+What is merged today: `DemoMode` in `Sources/HushCore/DemoMode.swift` parses the two arguments. `-demoMode` accepts `YES`, `true`, or `1` in any letter case. `-demoScene` is ignored unless demo mode is on. `AppDelegate` reads the parsed value at launch. `UITests/ScreenshotHarness.swift` provides the `ScreenshotTestCase` base class, and the only test so far, `testLaunchesInDemoModeWithoutWindows`, checks that the agent app launches in demo mode and opens no window. No scenes exist yet. They arrive with the windows they show.
 
-Scenes are registered in `DemoScene` (`Sources/QuothKit/Demo/`). That type is created by the first PR that adds a window. Planned scenes: `popover`, `overlay-listening`, `overlay-transcribing` (v0.1), `settings-general`, `settings-hotkeys`, `settings-audio`, `settings-transcription`, `settings-cleanup`, `settings-dictionary`, `settings-snippets`, `settings-privacy`, `history` (v0.2 and v0.3, with the tab they show), `onboarding-welcome`, `onboarding-microphone`, `onboarding-accessibility` (v1.0).
+Scenes are registered in `DemoScene` (`Sources/HushKit/Demo/`). That type is created by the first PR that adds a window. Planned scenes: `popover`, `overlay-listening`, `overlay-transcribing` (v0.1), `settings-general`, `settings-hotkeys`, `settings-audio`, `settings-transcription`, `settings-cleanup`, `settings-dictionary`, `settings-snippets`, `settings-privacy`, `history` (v0.2 and v0.3, with the tab they show), `onboarding-welcome`, `onboarding-microphone`, `onboarding-accessibility` (v1.0).
 
 The rule: every new window or tab must add a scene and a UI test in the same PR. Without that, the Before and After table cannot show your change and the reviewer cannot see it.
 
 To add a scene:
 
 1. Pick a lowercase, hyphenated name. It becomes the PNG file name, so follow the existing pattern: `<window>` or `<window>-<tab-or-state>`.
-2. Add a case for it to `DemoScene` in `Sources/QuothKit/Demo/` and make the app open that window, tab, or state at launch when the scene is requested. Feed it seeded in-memory data with fixed dates. Do not read the clock, the user's real settings, or anything else that changes between runs, or the before and after images will differ for no reason.
+2. Add a case for it to `DemoScene` in `Sources/HushKit/Demo/` and make the app open that window, tab, or state at launch when the scene is requested. Feed it seeded in-memory data with fixed dates. Do not read the clock, the user's real settings, or anything else that changes between runs, or the before and after images will differ for no reason.
 3. Keep the demo guarantees. The scene must not start audio capture, install an event tap, call the Accessibility API, read the Keychain, or make a network request.
 4. Give the root view of the window an accessibility identifier so the test can find it.
 5. Add a test to `UITests/ScreenshotTests.swift`:
@@ -349,7 +349,7 @@ They are checked by hand with the checklist in [docs/MANUAL_TEST.md](docs/MANUAL
 - whenever a PR touches audio, hotkey, transcription, or insertion code, and
 - before every release.
 
-If your PR touches one of those areas, run the matching sections of the checklist on your own Mac and say in the `## Testing` section of the PR which sections you ran, on which macOS version and hardware, and what you saw. The reviewer repeats them before merging. Logic that can be separated from the hardware (the hotkey state machine, the cleanup stages, strategy selection) belongs in `QuothCore` with unit tests, so that the hand-tested surface stays small.
+If your PR touches one of those areas, run the matching sections of the checklist on your own Mac and say in the `## Testing` section of the PR which sections you ran, on which macOS version and hardware, and what you saw. The reviewer repeats them before merging. Logic that can be separated from the hardware (the hotkey state machine, the cleanup stages, strategy selection) belongs in `HushCore` with unit tests, so that the hand-tested surface stays small.
 
 ## Merging
 
@@ -368,8 +368,8 @@ Releases are cut by the maintainer from `main` by pushing a `v*` tag. The proces
 - **SwiftFormat** is configured in `.swiftformat`: Swift 5.10, 4-space indent, 120 column maximum width, arguments, parameters, and collections wrapped before the first element, trailing commas always, redundant `self` removed, file headers stripped, `@testable` imports grouped last. Run `scripts/lint.sh --fix` and let the tool decide. Do not argue with the formatter in review.
 - **SwiftLint** is configured in `.swiftlint.yml` and runs with `--strict` in CI, so warnings fail the build. Notable settings: `force_unwrapping` is an error, line length warns at 120 and errors at 160, function bodies warn at 60 lines, files warn at 500 lines, cyclomatic complexity warns at 12. Several opt-in rules are on, including `empty_count`, `first_where`, `implicit_return`, `modifier_order`, and `fatal_error_message`. Do not add `swiftlint:disable` comments without saying why in the PR.
 - **Comments** only where the logic is not obvious. Explain why, not what. No commented-out code, no banner comments, no file headers. A doc comment on a public type that states a contract (as on `DemoMode`) is welcome.
-- **Core stays Foundation-only.** `Sources/QuothCore` imports Foundation and nothing else: no AppKit, no SwiftUI, no AVFoundation, no network. Anything that touches the platform goes in `Sources/QuothKit` behind a protocol that Core defines, so that Core stays deterministic and fully unit tested. New logic in Core comes with unit tests in the same PR.
-- `App/` holds only `main.swift`, `Info.plist`, the entitlements, and (once added) the asset catalog. App behavior lives in `QuothKit`.
+- **Core stays Foundation-only.** `Sources/HushCore` imports Foundation and nothing else: no AppKit, no SwiftUI, no AVFoundation, no network. Anything that touches the platform goes in `Sources/HushKit` behind a protocol that Core defines, so that Core stays deterministic and fully unit tested. New logic in Core comes with unit tests in the same PR.
+- `App/` holds only `main.swift`, `Info.plist`, the entitlements, and (once added) the asset catalog. App behavior lives in `HushKit`.
 - The overlay panel must never take focus, and nothing in the app may activate it over the frontmost app during dictation. Insertion depends on that.
 - No emojis or icon characters in code, comments, commit messages, or docs.
 - Do not change the bundle identifier, signing settings, entitlements, workflow permissions, or required check names unless the issue is about exactly that.
@@ -377,10 +377,10 @@ Releases are cut by the maintainer from `main` by pushing a `v*` tag. The proces
 
 ## Reporting bugs and security issues
 
-**Bugs.** Open an issue with the [bug template](https://github.com/ryan-stoffel/quoth/issues/new/choose). Include the Quoth version, the macOS version, whether the Mac is Apple silicon or Intel, the app you were dictating into, the steps, and what you expected. For insertion bugs the target app and its version matter most. Do not attach recordings of your voice or paste history entries that contain anything private.
+**Bugs.** Open an issue with the [bug template](https://github.com/ryan-stoffel/hush/issues/new/choose). Include the Hush version, the macOS version, whether the Mac is Apple silicon or Intel, the app you were dictating into, the steps, and what you expected. For insertion bugs the target app and its version matter most. Do not attach recordings of your voice or paste history entries that contain anything private.
 
-**Feature requests.** Use the feature template, or start in [Discussions](https://github.com/ryan-stoffel/quoth/discussions) if the idea is still rough.
+**Feature requests.** Use the feature template, or start in [Discussions](https://github.com/ryan-stoffel/hush/discussions) if the idea is still rough.
 
-**Security issues.** Do not open a public issue. Use GitHub private vulnerability reporting: on the repository's Security tab choose "Report a vulnerability", or go to https://github.com/ryan-stoffel/quoth/security/advisories/new. Anything that could leak audio, transcripts, history, or API keys, or that sends data off the machine without a cloud backend being selected, counts as a security issue here. The maintainer replies in the private advisory thread.
+**Security issues.** Do not open a public issue. Use GitHub private vulnerability reporting: on the repository's Security tab choose "Report a vulnerability", or go to https://github.com/ryan-stoffel/hush/security/advisories/new. Anything that could leak audio, transcripts, history, or API keys, or that sends data off the machine without a cloud backend being selected, counts as a security issue here. The maintainer replies in the private advisory thread.
 
 By contributing you agree that your contribution is licensed under the [MIT License](LICENSE).

@@ -51,7 +51,7 @@ body:
   - type: input
     id: app-version
     attributes:
-      label: "Quoth version"
+      label: "Hush version"
       description: Shown in the menu bar popover and in Settings.
     validations:
       required: true
@@ -86,7 +86,7 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: "Console.app output filtered by the Quoth process, or `log show --last 10m --predicate 'subsystem == \"io.github.ryan-stoffel.quoth\"'`."
+      description: "Console.app output filtered by the Hush process, or `log show --last 10m --predicate 'subsystem == \"io.github.ryan-stoffel.hush\"'`."
       render: text
   - type: checkboxes
     id: checks
