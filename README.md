@@ -67,14 +67,15 @@ With Homebrew:
 ```sh
 brew tap ryan-stoffel/taps
 brew trust ryan-stoffel/taps   # Homebrew 7 and later
-brew install --cask --no-quarantine ryan-stoffel/taps/hush
+brew install --cask ryan-stoffel/taps/hush
+xattr -dr com.apple.quarantine /Applications/Hush.app
 ```
 
 The fully qualified name matters: the main Homebrew tap has an unrelated cask called `hush`. Later, `brew upgrade --cask hush` moves to the newest build. Every merge to `develop` publishes a development build (versions like `0.2.0-dev.140`) and updates the cask, so upgrades are frequent; a final release on `main` updates the same cask.
 
 Without Homebrew: download `Hush-<version>.zip` from [Releases](https://github.com/ryan-stoffel/hush/releases), unzip it, and move `Hush.app` to `/Applications`. Hush appears in the menu bar, not in the Dock.
 
-Builds are not notarized yet (a v1.0 goal), which is why `--no-quarantine` is needed. Without it, Gatekeeper blocks the app on first launch; to allow it once, open System Settings, Privacy and Security, scroll to the message about Hush, and choose Open Anyway. Until builds are signed with a persistent certificate, each upgrade also asks for the three permissions again. `docs/RELEASING.md` explains both.
+Builds are not notarized yet (a v1.0 goal), which is why the `xattr` line is needed: it removes the quarantine flag that makes Gatekeeper block the app on first launch. Homebrew 7 removed its own `--no-quarantine` option, so run it after each install or upgrade. The alternative is to open Hush once, then open System Settings, Privacy and Security, scroll to the message about Hush, and choose Open Anyway. Until builds are signed with a persistent certificate, each upgrade also asks for the three permissions again. `docs/RELEASING.md` explains both.
 
 ## Permissions
 
