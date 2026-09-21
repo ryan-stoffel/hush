@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Writes the Homebrew cask for a release.
 
-  update_cask.py --version 0.2.0-dev.12 --sha256 <hex> --repo ryan-stoffel/hush --output Casks/hush.rb
+  update_cask.py --version 0.2.0-dev.12 --sha256 <hex> --repo ryan-stoffel/hush --output Casks/hush-dictation.rb
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-TEMPLATE = '''cask "hush" do
+TEMPLATE = '''cask "hush-dictation" do
   version "{version}"
   sha256 "{sha256}"
 
