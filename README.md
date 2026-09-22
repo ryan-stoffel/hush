@@ -67,11 +67,11 @@ With Homebrew:
 ```sh
 brew tap ryan-stoffel/taps
 brew trust ryan-stoffel/taps   # Homebrew 7 and later
-brew install --cask ryan-stoffel/taps/hush-dictation
+brew install --cask ryan-stoffel/taps/hush
 xattr -dr com.apple.quarantine /Applications/Hush.app
 ```
 
-The cask is called `hush-dictation` because the main Homebrew tap already has an unrelated cask called `hush` (a Safari extension), and a short `hush` token would upgrade to that one instead. Later, `brew upgrade --cask hush-dictation` moves to the newest build. Every merge to `develop` publishes a development build (versions like `0.2.0-dev.140`) and updates the cask, so upgrades are frequent; a final release on `main` updates the same cask.
+Always use the fully qualified name, including for upgrades: `brew upgrade --cask ryan-stoffel/taps/hush`. The main Homebrew tap has an unrelated cask called `hush` (a Safari extension), and Homebrew resolves a bare `hush` to that one first, so `brew upgrade --cask hush` would replace this app with it. Plain `brew upgrade` with no name is also safe, because it upgrades each installed cask from the tap it came from. Every merge to `develop` publishes a development build (versions like `0.2.0-dev.140`) and updates the cask, so upgrades are frequent; a final release on `main` updates the same cask.
 
 Without Homebrew: download `Hush-<version>.zip` from [Releases](https://github.com/ryan-stoffel/hush/releases), unzip it, and move `Hush.app` to `/Applications`. Hush appears in the menu bar, not in the Dock.
 

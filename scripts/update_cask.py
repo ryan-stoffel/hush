@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Writes the Homebrew cask for a release.
 
-  update_cask.py --version 0.2.0-dev.12 --sha256 <hex> --repo ryan-stoffel/hush --output Casks/hush-dictation.rb
+  update_cask.py --version 0.2.0-dev.12 --sha256 <hex> --repo ryan-stoffel/hush --output Casks/hush.rb
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-TEMPLATE = '''cask "hush-dictation" do
+TEMPLATE = '''cask "hush" do
   version "{version}"
   sha256 "{sha256}"
 
@@ -47,7 +47,11 @@ CAVEAT_UNSIGNED = """\
       After install: xattr -dr com.apple.quarantine /Applications/Hush.app
       Or:            open Hush once, then System Settings > Privacy & Security > Open Anyway.
 
-    Homebrew 7 removed --no-quarantine, so repeat the xattr step after each upgrade."""
+    Homebrew 7 removed --no-quarantine, so repeat the xattr step after each upgrade.
+
+    Always use the fully qualified name, including for upgrades:
+      brew upgrade --cask ryan-stoffel/taps/hush
+    A bare "hush" resolves to an unrelated Safari extension in homebrew-cask."""
 CAVEAT_NOTARIZED = """\
     Hush is signed with a Developer ID and notarized by Apple."""
 
