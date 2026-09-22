@@ -620,7 +620,7 @@ Merged from all six research passes.
 
 ## 10. Naming
 
-Renamed on 2026-09-20: the project shipped its first pre-release as Quoth and is now called Hush. The checks below were made for the earlier name; "hush" was chosen by the maintainer knowing that a Safari nag blocker called Hush exists (oblador.github.io/hush, also a Homebrew cask named `hush`), so the bundle id `io.github.ryan-stoffel.hush` and the cask token `hush-dictation` keep them apart. A cask named `hush` in the tap was tried first and `brew upgrade --cask hush` installed the Safari extension instead, which is why the token is not the bare name.
+Renamed on 2026-09-20: the project shipped its first pre-release as Quoth and is now called Hush. The checks below were made for the earlier name; "hush" was chosen by the maintainer knowing that a Safari nag blocker called Hush exists (oblador.github.io/hush, also a Homebrew cask named `hush`), so the bundle id `io.github.ryan-stoffel.hush` keeps them apart. The cask is also named `hush`, which means every Homebrew command must use the fully qualified `ryan-stoffel/taps/hush`; a bare `brew upgrade --cask hush` was tried and installed the Safari extension instead.
 
 
 Chosen name: Hush, an archaic English word for "said". Repository `ryan-stoffel/hush`, bundle id `io.github.ryan-stoffel.hush`.

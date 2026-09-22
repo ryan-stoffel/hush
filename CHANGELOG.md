@@ -16,7 +16,7 @@ Features are listed only once they are merged. Planned work is tracked in the Gi
 
 ### Added
 
-- Continuous dev releases: every merge to develop publishes a pre-release and updates the `hush-dictation` cask in ryan-stoffel/homebrew-taps, so `brew upgrade --cask hush-dictation` installs the latest build. Signing accepts any persistent certificate so permission grants survive upgrades. (#119)
+- Continuous dev releases: every merge to develop publishes a pre-release and updates the `hush` cask in ryan-stoffel/homebrew-taps, so `brew upgrade --cask ryan-stoffel/taps/hush` installs the latest build. Signing accepts any persistent certificate so permission grants survive upgrades. (#119)
 - When Apple Intelligence cannot load its models, the history note now says so in plain words and the app skips the model for a minute instead of delaying every dictation. (#116)
 - History window (popover, History button): every dictation with what was heard next to what was inserted, cleanup changes struck through, search, copy, delete, and clear all. (#39)
 - Dictations are recorded locally (text only, never audio) with a cap on count and age, a disable switch, and clear all. (#38)
